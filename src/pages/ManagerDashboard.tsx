@@ -1,105 +1,139 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Download } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Download, AlertTriangle, Zap, TrendingUp } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
+import KpiCard from "@/components/KpiCard";
+import BudgetBar from "@/components/BudgetBar";
 
-const stats = [
-  { label: "Heures ce mois", value: "1 248h" },
-  { label: "Consultants actifs", value: "14" },
-  { label: "Missions actives", value: "23" },
-];
-
-const chartData = [
-  { name: "M. Dupont", hours: 38 },
-  { name: "L. Martin", hours: 35 },
-  { name: "S. Bernard", hours: 40 },
-  { name: "A. Petit", hours: 32 },
-  { name: "C. Moreau", hours: 37 },
-  { name: "J. Laurent", hours: 29 },
-];
-
-const entries = [
-  { consultant: "Marie Dupont", mission: "Bilan Carbone 2025", date: "24/03/2025", hours: 8 },
-  { consultant: "Marie Dupont", mission: "Plan Climat Lyon", date: "25/03/2025", hours: 7.5 },
-  { consultant: "Luc Martin", mission: "Audit Biodiversité", date: "24/03/2025", hours: 8 },
-  { consultant: "Sophie Bernard", mission: "Mobilité Durable", date: "24/03/2025", hours: 8 },
-  { consultant: "Sophie Bernard", mission: "Mobilité Durable", date: "25/03/2025", hours: 8 },
-  { consultant: "Antoine Petit", mission: "Bilan Carbone 2025", date: "26/03/2025", hours: 6.5 },
-  { consultant: "Claire Moreau", mission: "Plan Climat Lyon", date: "24/03/2025", hours: 7 },
-  { consultant: "Jules Laurent", mission: "Audit Biodiversité", date: "25/03/2025", hours: 5 },
+const missions = [
+  {
+    client: "EcoTech Solutions",
+    project: "Bilan Carbone 2025",
+    budgetTotal: 120,
+    consumed: 78,
+    consultants: [
+      { name: "Marie Dupont", hours: 38, percent: 32 },
+      { name: "Luc Martin", hours: 40, percent: 33 },
+    ],
+    alerts: ["warning"],
+  },
+  {
+    client: "Ville de Lyon",
+    project: "Plan Climat Territorial",
+    budgetTotal: 200,
+    consumed: 185,
+    consultants: [
+      { name: "Sophie Bernard", hours: 95, percent: 47 },
+      { name: "Antoine Petit", hours: 90, percent: 45 },
+    ],
+    alerts: ["critical"],
+  },
+  {
+    client: "AgroVert",
+    project: "Audit Biodiversité",
+    budgetTotal: 80,
+    consumed: 92,
+    consultants: [
+      { name: "Claire Moreau", hours: 52, percent: 65 },
+      { name: "Jules Laurent", hours: 40, percent: 50 },
+    ],
+    alerts: ["exceeded", "velocity"],
+  },
+  {
+    client: "TransportPlus",
+    project: "Mobilité Durable",
+    budgetTotal: 150,
+    consumed: 45,
+    consultants: [
+      { name: "Marie Dupont", hours: 25, percent: 17 },
+      { name: "Luc Martin", hours: 20, percent: 13 },
+    ],
+    alerts: [],
+  },
 ];
 
 const ManagerDashboard = () => {
+  const totalBudget = missions.reduce((a, m) => a + m.budgetTotal, 0);
+  const totalConsumed = missions.reduce((a, m) => a + m.consumed, 0);
+  const alertCount = missions.filter((m) => m.alerts.length > 0).length;
+
   return (
-    <AppLayout active="dashboard">
+    <AppLayout role="manager">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-heading font-semibold text-primary">
-          Tableau de bord
-        </h2>
+        <h2 className="text-xl font-heading font-semibold text-primary">Mes missions</h2>
         <Button variant="outline" className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground">
-          <Download size={16} className="mr-2" />
-          Exporter CSV
+          <Download size={16} className="mr-2" /> Exporter CSV
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-card rounded-lg border border-border p-5">
-            <div className="label-uppercase mb-1">{s.label}</div>
-            <div className="text-2xl font-heading font-bold text-primary">{s.value}</div>
-          </div>
-        ))}
+        <KpiCard icon={<TrendingUp size={18} />} label="Budget total" value={`${totalBudget}j`} />
+        <KpiCard icon={<TrendingUp size={18} />} label="Temps consommé" value={`${totalConsumed}j`} />
+        <KpiCard icon={<AlertTriangle size={18} />} label="Alertes actives" value={`${alertCount}`} />
       </div>
 
-      {/* Chart */}
-      <div className="bg-card rounded-lg border border-border p-5 mb-6">
-        <h3 className="label-uppercase mb-4">Heures par consultant cette semaine</h3>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#1C1C1C" }} />
-            <YAxis tick={{ fontSize: 12, fill: "#1C1C1C" }} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid hsl(150, 25%, 91%)",
-                borderRadius: "8px",
-                fontSize: "13px",
-              }}
-            />
-            <Bar dataKey="hours" fill="#52B788" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <div className="space-y-4">
+        {missions.map((m, i) => {
+          const percent = Math.round((m.consumed / m.budgetTotal) * 100);
+          return (
+            <div key={i} className="bg-card rounded-lg border border-border p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="font-heading font-semibold text-primary">{m.client}</div>
+                  <div className="text-sm text-muted-foreground">{m.project}</div>
+                </div>
+                <div className="flex gap-2">
+                  {m.alerts.includes("warning") && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]">
+                      🟡 80% budget
+                    </span>
+                  )}
+                  {m.alerts.includes("critical") && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-destructive/10 text-destructive">
+                      🔴 Dépassement
+                    </span>
+                  )}
+                  {m.alerts.includes("exceeded") && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-destructive/10 text-destructive">
+                      🔴 Budget dépassé
+                    </span>
+                  )}
+                  {m.alerts.includes("velocity") && (
+                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]">
+                      ⚡ Consommation rapide
+                    </span>
+                  )}
+                </div>
+              </div>
 
-      {/* Table */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
-        <div className="flex items-center gap-3 p-4 border-b border-border">
-          <Input placeholder="Filtrer par consultant..." className="max-w-xs bg-card border-input rounded-md" />
-          <Input placeholder="Filtrer par mission..." className="max-w-xs bg-card border-input rounded-md" />
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 label-uppercase">Consultant</th>
-              <th className="text-left px-4 py-3 label-uppercase">Mission</th>
-              <th className="text-left px-4 py-3 label-uppercase">Date</th>
-              <th className="text-right px-4 py-3 label-uppercase">Heures</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((e, i) => (
-              <tr key={i} className="border-b border-border last:border-b-0 hover:bg-muted/30">
-                <td className="px-4 py-3 text-sm">{e.consultant}</td>
-                <td className="px-4 py-3 text-sm">{e.mission}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{e.date}</td>
-                <td className="px-4 py-3 text-sm text-right font-semibold text-primary">{e.hours}h</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              <div className="mb-3">
+                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                  <span>{m.consumed}j / {m.budgetTotal}j</span>
+                  <span>{percent}%</span>
+                </div>
+                <BudgetBar percent={percent} showLabel={false} />
+              </div>
+
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 label-uppercase">Consultant</th>
+                    <th className="text-right py-2 label-uppercase">Heures</th>
+                    <th className="text-right py-2 label-uppercase">% budget</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.consultants.map((c, ci) => (
+                    <tr key={ci} className="border-b border-border last:border-b-0">
+                      <td className="py-2 text-sm">{c.name}</td>
+                      <td className="py-2 text-sm text-right font-semibold text-primary">{c.hours}h</td>
+                      <td className="py-2 text-sm text-right text-muted-foreground">{c.percent}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
       </div>
     </AppLayout>
   );

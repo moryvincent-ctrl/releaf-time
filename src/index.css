@@ -31,6 +31,9 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
     --border: 150 25% 91%;
     --input: 150 20% 82%;
     --ring: 152 44% 52%;
@@ -64,6 +67,6 @@
 
 @layer components {
   .label-uppercase {
-    @apply text-xs uppercase tracking-wider font-medium text-muted-foreground;
+    @apply text-[11px] uppercase tracking-wider font-medium text-muted-foreground;
   }
 }

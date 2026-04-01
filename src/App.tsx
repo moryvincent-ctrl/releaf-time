@@ -5,7 +5,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import LoginPage from "./pages/LoginPage";
 import ConsultantView from "./pages/ConsultantView";
+import ConsultantDashboard from "./pages/ConsultantDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import Missions from "./pages/Missions";
+import MissionDetail from "./pages/MissionDetail";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,7 +24,12 @@ const App = () => (
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/consultant" element={<ConsultantView />} />
-          <Route path="/dashboard" element={<ManagerDashboard />} />
+          <Route path="/consultant/dashboard" element={<ConsultantDashboard />} />
+          <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/missions" element={<Missions />} />
+          <Route path="/missions/:id" element={<MissionDetail />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
