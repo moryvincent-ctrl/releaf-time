@@ -125,7 +125,14 @@ const ConsultantView = () => {
     return (
       <tr key={ri} className="border-b border-border last:border-b-0">
         <td className="px-4 py-3">
-          <div className="font-medium text-sm text-foreground">{row.label}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-medium text-sm text-foreground">{row.label}</div>
+            {row.pole && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${poleColors[row.pole] || "bg-muted text-muted-foreground"}`}>
+                {row.pole}
+              </span>
+            )}
+          </div>
           {row.sublabel && <div className="text-xs text-muted-foreground">{row.sublabel}</div>}
         </td>
         {days.map((_, ci) => (
