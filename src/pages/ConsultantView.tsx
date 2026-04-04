@@ -12,10 +12,10 @@ import {
 import AppLayout from "@/components/AppLayout";
 
 const initialMissions = [
-  { client: "EcoTech Solutions", project: "Bilan Carbone 2025", type: "mission" as const },
-  { client: "Ville de Lyon", project: "Plan Climat Territorial", type: "mission" as const },
-  { client: "AgroVert", project: "Audit Biodiversité", type: "mission" as const },
-  { client: "TransportPlus", project: "Mobilité Durable", type: "mission" as const },
+  { client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", type: "mission" as const },
+  { client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", type: "mission" as const },
+  { client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", type: "mission" as const },
+  { client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", type: "mission" as const },
 ];
 
 const internalCategories = [

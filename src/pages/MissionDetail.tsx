@@ -3,10 +3,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AppLayout from "@/components/AppLayout";
 import BudgetBar from "@/components/BudgetBar";
 
+const poleColors: Record<string, string> = {
+  "Releaf Carbon": "bg-primary/10 text-primary",
+  "Releaf LCA": "bg-secondary/10 text-secondary",
+  "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
+  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
+  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+};
+
 const missionData: Record<string, any> = {
   "1": {
     client: "EcoTech Solutions",
     project: "Bilan Carbone 2025",
+    pole: "Releaf Carbon",
     manager: "Claire Moreau",
     startDate: "01/01/2025",
     endDate: "30/06/2025",
@@ -14,8 +23,8 @@ const missionData: Record<string, any> = {
     budgetTotal: 120,
     consumed: 78,
     consultants: [
-      { name: "Marie Dupont", hours: 38, budget: 60, consumed: 38 },
-      { name: "Luc Martin", hours: 40, budget: 60, consumed: 40 },
+      { name: "Marie Dupont", initials: "MD", hours: 38, budget: 60, consumed: 38 },
+      { name: "Luc Martin", initials: "LM", hours: 40, budget: 60, consumed: 40 },
     ],
     entries: [
       { date: "24/03/2025", consultant: "Marie Dupont", hours: 8, comment: "Collecte données" },
@@ -40,9 +49,29 @@ const MissionDetail = () => {
           <span className="bg-accent text-accent-foreground text-xs font-medium px-2.5 py-1 rounded">
             {mission.status}
           </span>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${poleColors[mission.pole] || "bg-muted text-muted-foreground"}`}>
+            {mission.pole}
+          </span>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground mb-3">
           {mission.project} · Manager : {mission.manager} · {mission.startDate} → {mission.endDate}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="label-uppercase">Consultants :</span>
+          <div className="flex -space-x-2">
+            {mission.consultants.map((c: any, i: number) => (
+              <div
+                key={i}
+                className="w-7 h-7 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-medium border-2 border-card"
+                title={c.name}
+              >
+                {c.initials}
+              </div>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground ml-1">
+            {mission.consultants.map((c: any) => c.name).join(", ")}
+          </span>
         </div>
       </div>
 
@@ -102,7 +131,12 @@ const MissionDetail = () => {
                   const cp = Math.round((c.consumed / c.budget) * 100);
                   return (
                     <tr key={i} className="border-b border-border last:border-b-0">
-                      <td className="px-4 py-3 text-sm font-medium">{c.name}</td>
+                      <td className="px-4 py-3 text-sm font-medium flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-medium">
+                          {c.initials}
+                        </div>
+                        {c.name}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-semibold text-primary">{c.hours}h</td>
                       <td className="px-4 py-3 text-sm text-right text-muted-foreground">{c.budget}j</td>
                       <td className="px-4 py-3 text-sm text-right">{cp}%</td>
