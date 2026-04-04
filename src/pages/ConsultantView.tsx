@@ -61,6 +61,7 @@ const ConsultantView = () => {
     setAddType(type);
     setNewClient("");
     setNewProject("");
+    setNewPole("");
     setNewInternalLabel("");
     setAddDialogOpen(true);
   };
