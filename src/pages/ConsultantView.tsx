@@ -70,7 +70,7 @@ const ConsultantView = () => {
     let newRow: Row;
     if (addType === "mission") {
       if (!newClient.trim()) return;
-      newRow = { label: newClient.trim(), sublabel: newProject.trim() || undefined, type: "mission" };
+      newRow = { label: newClient.trim(), sublabel: newProject.trim() || undefined, pole: newPole || undefined, type: "mission" };
     } else {
       if (!newInternalLabel.trim()) return;
       newRow = { label: newInternalLabel.trim(), type: "internal" };
