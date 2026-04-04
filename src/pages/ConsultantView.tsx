@@ -29,7 +29,15 @@ const internalCategories = [
 
 const days = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 
-type Row = { label: string; sublabel?: string; type: "mission" | "internal" };
+type Row = { label: string; sublabel?: string; pole?: string; type: "mission" | "internal" };
+
+const poleColors: Record<string, string> = {
+  "Releaf Carbon": "bg-primary/10 text-primary",
+  "Releaf LCA": "bg-secondary/10 text-secondary",
+  "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
+  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
+  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+};
 
 const ConsultantView = () => {
   const [rows, setRows] = useState<Row[]>([
