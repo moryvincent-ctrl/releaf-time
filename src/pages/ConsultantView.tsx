@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Plus, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MessageSquare, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import AppLayout from "@/components/AppLayout";
 
 const initialMissions = [
@@ -33,6 +40,50 @@ const ConsultantView = () => {
   const [hours, setHours] = useState<number[][]>(rows.map(() => [0, 0, 0, 0, 0]));
   const [comments, setComments] = useState<string[][]>(rows.map(() => ["", "", "", "", ""]));
   const [showComment, setShowComment] = useState<{ row: number; col: number } | null>(null);
+
+  // Dialog state for adding rows
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addType, setAddType] = useState<"mission" | "internal">("mission");
+  const [newClient, setNewClient] = useState("");
+  const [newProject, setNewProject] = useState("");
+  const [newInternalLabel, setNewInternalLabel] = useState("");
+
+  const openAddDialog = (type: "mission" | "internal") => {
+    setAddType(type);
+    setNewClient("");
+    setNewProject("");
+    setNewInternalLabel("");
+    setAddDialogOpen(true);
+  };
+
+  const addRow = () => {
+    let newRow: Row;
+    if (addType === "mission") {
+      if (!newClient.trim()) return;
+      newRow = { label: newClient.trim(), sublabel: newProject.trim() || undefined, type: "mission" };
+    } else {
+      if (!newInternalLabel.trim()) return;
+      newRow = { label: newInternalLabel.trim(), type: "internal" };
+    }
+
+    // Insert at the right position: missions before internals
+    const missionCount = rows.filter((r) => r.type === "mission").length;
+    const insertIndex = addType === "mission" ? missionCount : rows.length;
+
+    const newRows = [...rows];
+    newRows.splice(insertIndex, 0, newRow);
+    setRows(newRows);
+
+    const newHours = [...hours];
+    newHours.splice(insertIndex, 0, [0, 0, 0, 0, 0]);
+    setHours(newHours);
+
+    const newComments = [...comments];
+    newComments.splice(insertIndex, 0, ["", "", "", "", ""]);
+    setComments(newComments);
+
+    setAddDialogOpen(false);
+  };
 
   const updateHour = (row: number, col: number, val: string) => {
     const num = val === "" ? 0 : parseFloat(val);
@@ -149,6 +200,18 @@ const ConsultantView = () => {
               </tr>
             )}
             {missionRows.map(renderRow)}
+            <tr>
+              <td colSpan={7} className="px-4 py-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
+                  onClick={() => openAddDialog("mission")}
+                >
+                  <Plus size={12} className="mr-1" /> Ajouter une mission
+                </Button>
+              </td>
+            </tr>
 
             {/* Internal rows */}
             {internalRows.length > 0 && (
@@ -159,6 +222,18 @@ const ConsultantView = () => {
               </tr>
             )}
             {internalRows.map(renderRow)}
+            <tr>
+              <td colSpan={7} className="px-4 py-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
+                  onClick={() => openAddDialog("internal")}
+                >
+                  <Plus size={12} className="mr-1" /> Ajouter un temps interne
+                </Button>
+              </td>
+            </tr>
           </tbody>
           <tfoot>
             <tr className="bg-muted/50">
@@ -176,11 +251,58 @@ const ConsultantView = () => {
         </table>
       </div>
 
-      <div className="mt-3">
-        <Button variant="ghost" size="sm" className="text-muted-foreground text-xs">
-          <Plus size={14} className="mr-1" /> Ajouter une ligne
-        </Button>
-      </div>
+      {/* Add row dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {addType === "mission" ? "Ajouter une mission" : "Ajouter un temps interne"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {addType === "mission" ? (
+              <>
+                <div>
+                  <label className="label-uppercase block mb-1.5">Nom du client</label>
+                  <Input
+                    value={newClient}
+                    onChange={(e) => setNewClient(e.target.value)}
+                    placeholder="Ex : GreenCorp"
+                    className="border-input"
+                  />
+                </div>
+                <div>
+                  <label className="label-uppercase block mb-1.5">Nom du projet</label>
+                  <Input
+                    value={newProject}
+                    onChange={(e) => setNewProject(e.target.value)}
+                    placeholder="Ex : Bilan Carbone 2025"
+                    className="border-input"
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className="label-uppercase block mb-1.5">Catégorie</label>
+                <Input
+                  value={newInternalLabel}
+                  onChange={(e) => setNewInternalLabel(e.target.value)}
+                  placeholder="Ex : Veille réglementaire"
+                  className="border-input"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={addRow}>
+              Ajouter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
