@@ -12,10 +12,10 @@ import {
 import AppLayout from "@/components/AppLayout";
 
 const initialMissions = [
-  { client: "EcoTech Solutions", project: "Bilan Carbone 2025", type: "mission" as const },
-  { client: "Ville de Lyon", project: "Plan Climat Territorial", type: "mission" as const },
-  { client: "AgroVert", project: "Audit Biodiversité", type: "mission" as const },
-  { client: "TransportPlus", project: "Mobilité Durable", type: "mission" as const },
+  { client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", type: "mission" as const },
+  { client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", type: "mission" as const },
+  { client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", type: "mission" as const },
+  { client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", type: "mission" as const },
 ];
 
 const internalCategories = [
@@ -29,11 +29,19 @@ const internalCategories = [
 
 const days = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 
-type Row = { label: string; sublabel?: string; type: "mission" | "internal" };
+type Row = { label: string; sublabel?: string; pole?: string; type: "mission" | "internal" };
+
+const poleColors: Record<string, string> = {
+  "Releaf Carbon": "bg-primary/10 text-primary",
+  "Releaf LCA": "bg-secondary/10 text-secondary",
+  "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
+  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
+  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+};
 
 const ConsultantView = () => {
   const [rows, setRows] = useState<Row[]>([
-    ...initialMissions.map((m) => ({ label: m.client, sublabel: m.project, type: "mission" as const })),
+    ...initialMissions.map((m) => ({ label: m.client, sublabel: m.project, pole: m.pole, type: "mission" as const })),
     ...internalCategories.map((c) => ({ label: c, type: "internal" as const })),
   ]);
 
@@ -46,12 +54,14 @@ const ConsultantView = () => {
   const [addType, setAddType] = useState<"mission" | "internal">("mission");
   const [newClient, setNewClient] = useState("");
   const [newProject, setNewProject] = useState("");
+  const [newPole, setNewPole] = useState("");
   const [newInternalLabel, setNewInternalLabel] = useState("");
 
   const openAddDialog = (type: "mission" | "internal") => {
     setAddType(type);
     setNewClient("");
     setNewProject("");
+    setNewPole("");
     setNewInternalLabel("");
     setAddDialogOpen(true);
   };
@@ -60,7 +70,7 @@ const ConsultantView = () => {
     let newRow: Row;
     if (addType === "mission") {
       if (!newClient.trim()) return;
-      newRow = { label: newClient.trim(), sublabel: newProject.trim() || undefined, type: "mission" };
+      newRow = { label: newClient.trim(), sublabel: newProject.trim() || undefined, pole: newPole || undefined, type: "mission" };
     } else {
       if (!newInternalLabel.trim()) return;
       newRow = { label: newInternalLabel.trim(), type: "internal" };
@@ -117,7 +127,14 @@ const ConsultantView = () => {
     return (
       <tr key={ri} className="border-b border-border last:border-b-0">
         <td className="px-4 py-3">
-          <div className="font-medium text-sm text-foreground">{row.label}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-medium text-sm text-foreground">{row.label}</div>
+            {row.pole && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${poleColors[row.pole] || "bg-muted text-muted-foreground"}`}>
+                {row.pole}
+              </span>
+            )}
+          </div>
           {row.sublabel && <div className="text-xs text-muted-foreground">{row.sublabel}</div>}
         </td>
         {days.map((_, ci) => (
@@ -279,6 +296,21 @@ const ConsultantView = () => {
                     placeholder="Ex : Bilan Carbone 2025"
                     className="border-input"
                   />
+                </div>
+                <div>
+                  <label className="label-uppercase block mb-1.5">Pôle</label>
+                  <select
+                    value={newPole}
+                    onChange={(e) => setNewPole(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">— Sélectionner un pôle —</option>
+                    <option value="Releaf Carbon">Releaf Carbon</option>
+                    <option value="Releaf LCA">Releaf LCA</option>
+                    <option value="Releaf Energy">Releaf Energy</option>
+                    <option value="Releaf Water">Releaf Water</option>
+                    <option value="Releaf Biodiversity">Releaf Biodiversity</option>
+                  </select>
                 </div>
               </>
             ) : (
