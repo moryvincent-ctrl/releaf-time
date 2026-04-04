@@ -41,7 +41,7 @@ const poleColors: Record<string, string> = {
 
 const ConsultantView = () => {
   const [rows, setRows] = useState<Row[]>([
-    ...initialMissions.map((m) => ({ label: m.client, sublabel: m.project, type: "mission" as const })),
+    ...initialMissions.map((m) => ({ label: m.client, sublabel: m.project, pole: m.pole, type: "mission" as const })),
     ...internalCategories.map((c) => ({ label: c, type: "internal" as const })),
   ]);
 
