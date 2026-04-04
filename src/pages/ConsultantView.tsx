@@ -297,6 +297,21 @@ const ConsultantView = () => {
                     className="border-input"
                   />
                 </div>
+                <div>
+                  <label className="label-uppercase block mb-1.5">Pôle</label>
+                  <select
+                    value={newPole}
+                    onChange={(e) => setNewPole(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">— Sélectionner un pôle —</option>
+                    <option value="Releaf Carbon">Releaf Carbon</option>
+                    <option value="Releaf LCA">Releaf LCA</option>
+                    <option value="Releaf Energy">Releaf Energy</option>
+                    <option value="Releaf Water">Releaf Water</option>
+                    <option value="Releaf Biodiversity">Releaf Biodiversity</option>
+                  </select>
+                </div>
               </>
             ) : (
               <div>
