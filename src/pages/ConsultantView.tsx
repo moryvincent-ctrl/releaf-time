@@ -54,6 +54,7 @@ const ConsultantView = () => {
   const [addType, setAddType] = useState<"mission" | "internal">("mission");
   const [newClient, setNewClient] = useState("");
   const [newProject, setNewProject] = useState("");
+  const [newPole, setNewPole] = useState("");
   const [newInternalLabel, setNewInternalLabel] = useState("");
 
   const openAddDialog = (type: "mission" | "internal") => {
