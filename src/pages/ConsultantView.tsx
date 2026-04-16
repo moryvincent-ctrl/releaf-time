@@ -14,7 +14,7 @@ import AppLayout from "@/components/AppLayout";
 const initialMissions = [
   { client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", type: "mission" as const },
   { client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", type: "mission" as const },
-  { client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", type: "mission" as const },
+  { client: "AgroVert", project: "Formation RSE", pole: "Releaf Campus", type: "mission" as const },
   { client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", type: "mission" as const },
 ];
 
@@ -35,8 +35,8 @@ const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
   "Releaf LCA": "bg-secondary/10 text-secondary",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
-  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/10 text-[hsl(270,50%,40%)]",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
 };
 
 const ConsultantView = () => {
@@ -308,8 +308,8 @@ const ConsultantView = () => {
                     <option value="Releaf Carbon">Releaf Carbon</option>
                     <option value="Releaf LCA">Releaf LCA</option>
                     <option value="Releaf Energy">Releaf Energy</option>
-                    <option value="Releaf Water">Releaf Water</option>
-                    <option value="Releaf Biodiversity">Releaf Biodiversity</option>
+                    <option value="Releaf Tools">Releaf Tools</option>
+                    <option value="Releaf Campus">Releaf Campus</option>
                   </select>
                 </div>
               </>

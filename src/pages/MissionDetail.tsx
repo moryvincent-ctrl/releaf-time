@@ -7,8 +7,8 @@ const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
   "Releaf LCA": "bg-secondary/10 text-secondary",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
-  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/10 text-[hsl(270,50%,40%)]",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
 };
 
 const missionData: Record<string, any> = {
