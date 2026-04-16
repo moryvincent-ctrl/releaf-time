@@ -259,34 +259,84 @@ const Forecast = () => {
     return total;
   };
 
-  // ── Admin: chart data ──
-  const chartData = useMemo(() => {
+  // ── Admin: chart data by pole (secondary view) ──
+  const chartDataByPole = useMemo(() => {
     return displayedWeeks.map((w) => {
       const wk = weekKey(w);
       const entry: Record<string, any> = { week: formatWeekLabel(w) };
-      const uniquePoles = new Set<string>();
-      
       Object.entries(forecastData).forEach(([mId, mData]) => {
         const mission = getMission(mId);
         if (!mission) return;
         if (filterPole !== "all" && mission.pole !== filterPole) return;
-        
         let missionTotal = 0;
         Object.entries(mData).forEach(([cId, weeks]) => {
           if (filterConsultant !== "all" && cId !== filterConsultant) return;
-          missionTotal += (weeks[wk] || 0) * 5; // convert daily fraction to weekly days
+          missionTotal += (weeks[wk] || 0) * 5;
         });
-        
         if (missionTotal > 0) {
-          const key = mission.pole;
-          entry[key] = (entry[key] || 0) + missionTotal;
-          uniquePoles.add(key);
+          entry[mission.pole] = (entry[mission.pole] || 0) + missionTotal;
         }
       });
-      
       return entry;
     });
   }, [forecastData, displayedWeeks, filterConsultant, filterPole]);
+
+  // ── Admin: chart data by consultant (primary view) ──
+  const chartDataByConsultant = useMemo(() => {
+    // Build per-consultant data: each bar = a consultant, stacked segments = missions
+    const filteredConsultants = filterConsultant !== "all"
+      ? consultants.filter((c) => c.id === filterConsultant)
+      : consultants;
+
+    return filteredConsultants.map((c) => {
+      const entry: Record<string, any> = { consultant: c.name };
+      let hasData = false;
+      Object.entries(forecastData).forEach(([mId, mData]) => {
+        const mission = getMission(mId);
+        if (!mission) return;
+        if (filterPole !== "all" && mission.pole !== filterPole) return;
+        if (filterMission !== "all" && mId !== filterMission) return;
+        if (!mData[c.id]) return;
+        let total = 0;
+        displayedWeeks.forEach((w) => {
+          const wk = weekKey(w);
+          total += (mData[c.id]?.[wk] || 0) * 5;
+        });
+        if (total > 0) {
+          const missionLabel = `${mission.client} — ${mission.project}`;
+          entry[missionLabel] = Math.round(total * 10) / 10;
+          hasData = true;
+        }
+      });
+      return hasData ? entry : null;
+    }).filter(Boolean);
+  }, [forecastData, displayedWeeks, filterConsultant, filterMission, filterPole]);
+
+  // Get unique mission labels for the chart
+  const activeMissionLabels = useMemo(() => {
+    const labels = new Set<string>();
+    Object.entries(forecastData).forEach(([mId, mData]) => {
+      const mission = getMission(mId);
+      if (!mission) return;
+      if (filterPole !== "all" && mission.pole !== filterPole) return;
+      if (filterMission !== "all" && mId !== filterMission) return;
+      const hasAnyData = Object.values(mData).some((wData) =>
+        displayedWeeks.some((w) => (wData[weekKey(w)] || 0) > 0)
+      );
+      if (hasAnyData) labels.add(`${mission.client} — ${mission.project}`);
+    });
+    return Array.from(labels);
+  }, [forecastData, displayedWeeks, filterPole, filterMission]);
+
+  // Map mission labels to colors based on their pole
+  const missionLabelColors = useMemo(() => {
+    const map: Record<string, string> = {};
+    missions.forEach((m, i) => {
+      const label = `${m.client} — ${m.project}`;
+      map[label] = poleChartColors[m.pole] || missionChartColors[i % missionChartColors.length];
+    });
+    return map;
+  }, []);
 
   const activePoles = useMemo(() => {
     const poles = new Set<string>();
