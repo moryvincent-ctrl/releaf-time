@@ -32,6 +32,7 @@ const App = () => (
           <Route path="/missions/:id" element={<MissionDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/forecast" element={<Forecast />} />
+          <Route path="/manager/forecast" element={<Forecast />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

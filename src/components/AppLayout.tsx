@@ -14,6 +14,7 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   manager: [
     { label: "Tableau de bord", path: "/manager", icon: LayoutDashboard },
     { label: "Missions", path: "/missions", icon: Briefcase },
+    { label: "Prévisionnel", path: "/manager/forecast", icon: CalendarRange },
     { label: "Mon compte", path: "#", icon: User },
   ],
   admin: [
