@@ -33,8 +33,7 @@ import AppLayout from "@/components/AppLayout";
 const missions = [
   { id: 1, client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", manager: "lm" },
   { id: 2, client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", manager: "cm" },
-  { id: 3, client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", manager: "lm" },
-  { id: 4, client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", manager: "cm" },
+  { id: 3, client: "AgroVert", project: "Formation RSE", pole: "Releaf Campus", manager: "lm" },
 ];
 
 const consultants = [
@@ -50,24 +49,35 @@ const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
   "Releaf LCA": "bg-secondary/10 text-secondary",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
-  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/10 text-[hsl(270,50%,40%)]",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
 };
 
 const poleChartColors: Record<string, string> = {
   "Releaf Carbon": "hsl(153, 42%, 18%)",
   "Releaf LCA": "hsl(152, 44%, 52%)",
   "Releaf Energy": "hsl(38, 80%, 50%)",
-  "Releaf Water": "hsl(200, 70%, 50%)",
-  "Releaf Biodiversity": "hsl(138, 44%, 60%)",
+  "Releaf Tools": "hsl(270, 50%, 55%)",
+  "Releaf Campus": "hsl(200, 70%, 50%)",
 };
+
+// Mission chart colors (for per-consultant stacked bars)
+const missionChartColors: string[] = [
+  "hsl(153, 42%, 18%)",
+  "hsl(152, 44%, 52%)",
+  "hsl(38, 80%, 50%)",
+  "hsl(270, 50%, 55%)",
+  "hsl(200, 70%, 50%)",
+  "hsl(340, 60%, 50%)",
+  "hsl(20, 70%, 55%)",
+];
 
 const poleBgColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/20",
   "Releaf LCA": "bg-secondary/20",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/20",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/20",
-  "Releaf Biodiversity": "bg-accent/60",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/20",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/20",
 };
 
 const dayOptions = [0, 0.25, 0.5, 0.75, 1];
