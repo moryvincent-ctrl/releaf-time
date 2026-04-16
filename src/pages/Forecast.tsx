@@ -706,40 +706,99 @@ const Forecast = () => {
         </Select>
       </div>
 
-      {/* Stacked bar chart */}
-      <Card className="border-border mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 size={18} className="text-secondary" />
-            Charge prévisionnelle par semaine
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
-                <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 11 }} label={{ value: "Jours", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
-                <RechartsTooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
-                  formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {activePoles.map((pole) => (
-                  <Bar
-                    key={pole}
-                    dataKey={pole}
-                    stackId="a"
-                    fill={poleChartColors[pole] || "#999"}
-                    radius={[2, 2, 0, 0]}
+      {/* Chart view toggle */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant={chartView === "consultant" ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={() => setChartView("consultant")}
+        >
+          Par consultant
+        </Button>
+        <Button
+          variant={chartView === "pole" ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={() => setChartView("pole")}
+        >
+          Par pôle
+        </Button>
+      </div>
+
+      {/* Stacked bar chart - Per Consultant */}
+      {chartView === "consultant" && (
+        <Card className="border-border mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 size={18} className="text-secondary" />
+              Charge prévisionnelle par consultant (période affichée)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartDataByConsultant} layout="vertical" margin={{ top: 10, right: 30, left: 120, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} label={{ value: "Jours totaux", position: "insideBottom", offset: -5, style: { fontSize: 11 } }} />
+                  <YAxis dataKey="consultant" type="category" tick={{ fontSize: 11 }} width={110} />
+                  <RechartsTooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
+                    formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  {activeMissionLabels.map((label) => (
+                    <Bar
+                      key={label}
+                      dataKey={label}
+                      stackId="a"
+                      fill={missionLabelColors[label] || "#999"}
+                      radius={[0, 2, 2, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stacked bar chart - Per Pole */}
+      {chartView === "pole" && (
+        <Card className="border-border mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 size={18} className="text-secondary" />
+              Charge prévisionnelle par semaine (par pôle)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartDataByPole} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} label={{ value: "Jours", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
+                  <RechartsTooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
+                    formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {activePoles.map((pole) => (
+                    <Bar
+                      key={pole}
+                      dataKey={pole}
+                      stackId="a"
+                      fill={poleChartColors[pole] || "#999"}
+                      radius={[2, 2, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Week navigation */}
       <div className="flex items-center gap-2 mb-4">
