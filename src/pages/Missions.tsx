@@ -46,7 +46,7 @@ const missions = [
   {
     id: 3,
     client: "AgroVert",
-    project: "Audit Biodiversité",
+    project: "Formation RSE",
     pole: "Releaf Campus",
     manager: "Claire Moreau",
     startDate: "01/03/2025",
