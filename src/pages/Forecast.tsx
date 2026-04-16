@@ -1,16 +1,9 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -18,15 +11,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Calendar, BarChart3, AlertTriangle, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from "recharts";
+import { Plus, X, Calendar, BarChart3, AlertTriangle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 
-// Shared data (same missions/consultants as rest of app)
+// ── Shared data ──
 const missions = [
-  { id: 1, client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon" },
-  { id: 2, client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy" },
-  { id: 3, client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity" },
-  { id: 4, client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA" },
+  { id: 1, client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", manager: "lm" },
+  { id: 2, client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", manager: "cm" },
+  { id: 3, client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", manager: "lm" },
+  { id: 4, client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", manager: "cm" },
 ];
 
 const consultants = [
@@ -46,6 +54,14 @@ const poleColors: Record<string, string> = {
   "Releaf Biodiversity": "bg-accent text-accent-foreground",
 };
 
+const poleChartColors: Record<string, string> = {
+  "Releaf Carbon": "hsl(153, 42%, 18%)",
+  "Releaf LCA": "hsl(152, 44%, 52%)",
+  "Releaf Energy": "hsl(38, 80%, 50%)",
+  "Releaf Water": "hsl(200, 70%, 50%)",
+  "Releaf Biodiversity": "hsl(138, 44%, 60%)",
+};
+
 const poleBgColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/20",
   "Releaf LCA": "bg-secondary/20",
@@ -54,488 +70,277 @@ const poleBgColors: Record<string, string> = {
   "Releaf Biodiversity": "bg-accent/60",
 };
 
-type ForecastLine = {
-  consultantId: string;
-  daysPerWeek: number;
-};
+const dayOptions = [0, 0.25, 0.5, 0.75, 1];
 
-type ForecastEntry = {
-  id: number;
-  missionId: number;
-  startDate: string;
-  endDate: string;
-  lines: ForecastLine[];
-};
-
-// Generate week labels between two dates
-const getWeeksBetween = (start: string, end: string): { label: string; startDate: Date }[] => {
-  const weeks: { label: string; startDate: Date }[] = [];
-  const s = new Date(start);
-  const e = new Date(end);
-  // Align to Monday
-  const day = s.getDay();
+// ── Week helpers ──
+const getMonday = (d: Date): Date => {
+  const date = new Date(d);
+  const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
-  s.setDate(s.getDate() + diff);
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
 
-  while (s <= e) {
-    const weekEnd = new Date(s);
-    weekEnd.setDate(weekEnd.getDate() + 4);
-    const label = `${s.getDate()}/${s.getMonth() + 1} - ${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`;
-    weeks.push({ label, startDate: new Date(s) });
-    s.setDate(s.getDate() + 7);
+const formatWeekLabel = (monday: Date): string => {
+  const friday = new Date(monday);
+  friday.setDate(friday.getDate() + 4);
+  const weekNum = getWeekNumber(monday);
+  const months = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
+  return `S${weekNum} · ${monday.getDate()}-${friday.getDate()} ${months[friday.getMonth()]}`;
+};
+
+const getWeekNumber = (d: Date): number => {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+};
+
+const generateWeeks = (count: number, startOffset = 0): Date[] => {
+  const today = new Date();
+  const start = getMonday(today);
+  start.setDate(start.getDate() + startOffset * 7);
+  const weeks: Date[] = [];
+  for (let i = 0; i < count; i++) {
+    const w = new Date(start);
+    w.setDate(w.getDate() + i * 7);
+    weeks.push(w);
   }
   return weeks;
 };
 
-const generateRealData = (forecast: ForecastEntry): Record<string, Record<number, number>> => {
-  const weeks = getWeeksBetween(forecast.startDate, forecast.endDate);
-  const result: Record<string, Record<number, number>> = {};
-  forecast.lines.forEach((line) => {
-    result[line.consultantId] = {};
-    weeks.forEach((_, wi) => {
-      const base = line.daysPerWeek;
-      const variance = (Math.random() - 0.4) * 1.5;
-      result[line.consultantId][wi] = Math.max(0, Math.round((base + variance) * 2) / 2);
+const weekKey = (d: Date) => d.toISOString().slice(0, 10);
+
+// ── Types ──
+type ForecastCell = Record<string, Record<string, Record<string, number>>>;
+// forecastData[missionId][consultantId][weekKey] = days (0-1 per day)
+
+// ── Simulated real time data ──
+const generateRealData = (forecastData: ForecastCell): Record<string, Record<string, number>> => {
+  const result: Record<string, Record<string, number>> = {};
+  Object.entries(forecastData).forEach(([mId, consultants]) => {
+    Object.entries(consultants).forEach(([cId, weeks]) => {
+      if (!result[cId]) result[cId] = {};
+      Object.entries(weeks).forEach(([wk, planned]) => {
+        const current = result[cId][`${mId}_${wk}`] || 0;
+        const variance = (Math.random() - 0.3) * 0.5;
+        result[cId][`${mId}_${wk}`] = Math.max(0, Math.round((planned + variance) * 4) / 4);
+        // Also aggregate by week
+        result[cId][wk] = (result[cId][wk] || 0) + Math.max(0, Math.round((planned + variance) * 4) / 4);
+      });
     });
   });
   return result;
 };
 
-// Initial demo forecasts
-const initialForecasts: ForecastEntry[] = [
-  {
-    id: 1,
-    missionId: 1,
-    startDate: "2025-03-01",
-    endDate: "2025-05-31",
-    lines: [
-      { consultantId: "md", daysPerWeek: 2 },
-      { consultantId: "lm", daysPerWeek: 1 },
-    ],
-  },
-  {
-    id: 2,
-    missionId: 2,
-    startDate: "2025-03-15",
-    endDate: "2025-06-15",
-    lines: [
-      { consultantId: "sb", daysPerWeek: 3 },
-      { consultantId: "ap", daysPerWeek: 1.5 },
-    ],
-  },
-];
+// ── Initial demo data ──
+const buildInitialData = (): ForecastCell => {
+  const data: ForecastCell = {};
+  const weeks = generateWeeks(12);
+  // Mission 1: md 0.5/day, lm 0.25/day
+  data["1"] = {
+    md: Object.fromEntries(weeks.map((w) => [weekKey(w), 0.5])),
+    ap: Object.fromEntries(weeks.map((w) => [weekKey(w), 0.25])),
+  };
+  // Mission 2: sb 0.75/day, ap 0.5/day
+  data["2"] = {
+    sb: Object.fromEntries(weeks.map((w) => [weekKey(w), 0.75])),
+    ap: Object.fromEntries(weeks.slice(0, 8).map((w) => [weekKey(w), 0.5])),
+  };
+  // Mission 3: md 0.25
+  data["3"] = {
+    md: Object.fromEntries(weeks.slice(2, 10).map((w) => [weekKey(w), 0.25])),
+    jl: Object.fromEntries(weeks.map((w) => [weekKey(w), 0.5])),
+  };
+  return data;
+};
 
+// ── Component ──
 const Forecast = () => {
-  const [forecasts, setForecasts] = useState<ForecastEntry[]>(initialForecasts);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [detailId, setDetailId] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<"weekly" | "monthly">("weekly");
-  const [filterConsultant, setFilterConsultant] = useState<string>("all");
-  const [filterMission, setFilterMission] = useState<string>("all");
+  const location = useLocation();
+  const isManager = location.pathname.includes("/manager") || location.pathname === "/forecast";
+  const isAdmin = location.pathname === "/forecast" || location.pathname.includes("/admin");
 
-  const [newMissionId, setNewMissionId] = useState<string>("");
-  const [newStart, setNewStart] = useState("");
-  const [newEnd, setNewEnd] = useState("");
-  const [newLines, setNewLines] = useState<ForecastLine[]>([]);
-  const [newLineConsultant, setNewLineConsultant] = useState("");
-  const [newLineDays, setNewLineDays] = useState("1");
+  // Determine role from path context
+  const role: "manager" | "admin" = location.pathname.startsWith("/manager") ? "manager" : "admin";
 
-  const [realDataCache] = useState<Record<number, Record<string, Record<number, number>>>>(() => {
-    const cache: Record<number, Record<string, Record<number, number>>> = {};
-    initialForecasts.forEach((f) => {
-      cache[f.id] = generateRealData(f);
-    });
-    return cache;
-  });
+  const [forecastData, setForecastData] = useState<ForecastCell>(buildInitialData);
+  const [weeks] = useState(() => generateWeeks(12));
+  const [weekOffset, setWeekOffset] = useState(0);
+  const visibleWeekCount = 8;
 
-  const addLineToNew = () => {
-    if (!newLineConsultant || !newLineDays) return;
-    if (newLines.find((l) => l.consultantId === newLineConsultant)) return;
-    setNewLines([...newLines, { consultantId: newLineConsultant, daysPerWeek: parseFloat(newLineDays) }]);
-    setNewLineConsultant("");
-    setNewLineDays("1");
-  };
+  // Filters (admin)
+  const [filterConsultant, setFilterConsultant] = useState("all");
+  const [filterMission, setFilterMission] = useState("all");
+  const [filterPole, setFilterPole] = useState("all");
 
-  const removeLineFromNew = (cId: string) => {
-    setNewLines(newLines.filter((l) => l.consultantId !== cId));
-  };
+  // Manager: selected mission for editing
+  const [selectedMission, setSelectedMission] = useState<string>(String(missions[0].id));
+  const [expandedConsultants, setExpandedConsultants] = useState<Record<string, boolean>>({});
 
-  const saveForecast = () => {
-    if (!newMissionId || !newStart || !newEnd || newLines.length === 0) return;
-    const entry: ForecastEntry = {
-      id: Date.now(),
-      missionId: parseInt(newMissionId),
-      startDate: newStart,
-      endDate: newEnd,
-      lines: [...newLines],
-    };
-    setForecasts([...forecasts, entry]);
-    realDataCache[entry.id] = generateRealData(entry);
-    setDialogOpen(false);
-    setNewMissionId("");
-    setNewStart("");
-    setNewEnd("");
-    setNewLines([]);
-  };
+  // Real data cache
+  const [realData] = useState(() => generateRealData(buildInitialData()));
 
-  const getMission = (id: number) => missions.find((m) => m.id === id);
+  const displayedWeeks = weeks.slice(weekOffset, weekOffset + visibleWeekCount);
+
+  const getMission = (id: number | string) => missions.find((m) => m.id === Number(id));
   const getConsultant = (id: string) => consultants.find((c) => c.id === id);
 
-  const globalWeeks = useMemo(() => {
-    if (forecasts.length === 0) return [];
-    const allDates = forecasts.flatMap((f) => [new Date(f.startDate), new Date(f.endDate)]);
-    const minDate = new Date(Math.min(...allDates.map((d) => d.getTime())));
-    const maxDate = new Date(Math.max(...allDates.map((d) => d.getTime())));
-    return getWeeksBetween(minDate.toISOString().slice(0, 10), maxDate.toISOString().slice(0, 10));
-  }, [forecasts]);
+  // ── Manager: update a cell ──
+  const updateCell = (missionId: string, consultantId: string, wk: string, value: number) => {
+    setForecastData((prev) => {
+      const next = { ...prev };
+      if (!next[missionId]) next[missionId] = {};
+      if (!next[missionId][consultantId]) next[missionId][consultantId] = {};
+      next[missionId][consultantId] = { ...next[missionId][consultantId], [wk]: value };
+      return next;
+    });
+  };
 
-  const planningData = useMemo(() => {
-    const data: Record<string, Record<number, { missionId: number; days: number }[]>> = {};
-    forecasts.forEach((f) => {
-      const fWeeks = getWeeksBetween(f.startDate, f.endDate);
-      f.lines.forEach((line) => {
-        if (filterConsultant !== "all" && line.consultantId !== filterConsultant) return;
-        if (filterMission !== "all" && f.missionId !== parseInt(filterMission)) return;
-        if (!data[line.consultantId]) data[line.consultantId] = {};
-        fWeeks.forEach((fw) => {
-          const gwi = globalWeeks.findIndex(
-            (gw) => gw.startDate.getTime() === fw.startDate.getTime()
-          );
-          if (gwi === -1) return;
-          if (!data[line.consultantId][gwi]) data[line.consultantId][gwi] = [];
-          data[line.consultantId][gwi].push({ missionId: f.missionId, days: line.daysPerWeek });
+  // ── Manager: add consultant to mission ──
+  const [addConsultantMission, setAddConsultantMission] = useState("");
+  const addConsultantToMission = (missionId: string, consultantId: string) => {
+    if (!consultantId) return;
+    setForecastData((prev) => {
+      const next = { ...prev };
+      if (!next[missionId]) next[missionId] = {};
+      if (next[missionId][consultantId]) return prev;
+      next[missionId][consultantId] = {};
+      weeks.forEach((w) => {
+        next[missionId][consultantId][weekKey(w)] = 0;
+      });
+      return next;
+    });
+    setAddConsultantMission("");
+  };
+
+  const removeConsultantFromMission = (missionId: string, consultantId: string) => {
+    setForecastData((prev) => {
+      const next = { ...prev };
+      if (next[missionId]) {
+        const { [consultantId]: _, ...rest } = next[missionId];
+        next[missionId] = rest;
+      }
+      return next;
+    });
+  };
+
+  // ── Manager: get consultants for selected mission ──
+  const missionConsultants = useMemo(() => {
+    const mData = forecastData[selectedMission] || {};
+    return Object.keys(mData);
+  }, [forecastData, selectedMission]);
+
+  const availableConsultantsForMission = consultants.filter(
+    (c) => !missionConsultants.includes(c.id)
+  );
+
+  // ── Overload detection ──
+  const getConsultantWeekTotal = (consultantId: string, wk: string): number => {
+    let total = 0;
+    Object.entries(forecastData).forEach(([, mData]) => {
+      if (mData[consultantId]?.[wk]) {
+        total += mData[consultantId][wk];
+      }
+    });
+    return total;
+  };
+
+  // ── Admin: chart data ──
+  const chartData = useMemo(() => {
+    return displayedWeeks.map((w) => {
+      const wk = weekKey(w);
+      const entry: Record<string, any> = { week: formatWeekLabel(w) };
+      const uniquePoles = new Set<string>();
+      
+      Object.entries(forecastData).forEach(([mId, mData]) => {
+        const mission = getMission(mId);
+        if (!mission) return;
+        if (filterPole !== "all" && mission.pole !== filterPole) return;
+        
+        let missionTotal = 0;
+        Object.entries(mData).forEach(([cId, weeks]) => {
+          if (filterConsultant !== "all" && cId !== filterConsultant) return;
+          missionTotal += (weeks[wk] || 0) * 5; // convert daily fraction to weekly days
+        });
+        
+        if (missionTotal > 0) {
+          const key = mission.pole;
+          entry[key] = (entry[key] || 0) + missionTotal;
+          uniquePoles.add(key);
+        }
+      });
+      
+      return entry;
+    });
+  }, [forecastData, displayedWeeks, filterConsultant, filterPole]);
+
+  const activePoles = useMemo(() => {
+    const poles = new Set<string>();
+    Object.entries(forecastData).forEach(([mId]) => {
+      const m = getMission(mId);
+      if (m) poles.add(m.pole);
+    });
+    return Array.from(poles);
+  }, [forecastData]);
+
+  // ── Admin: consultant detail table data ──
+  const adminConsultantData = useMemo(() => {
+    const data: Record<string, Record<string, { planned: number; missions: { missionId: string; days: number }[] }>> = {};
+    
+    Object.entries(forecastData).forEach(([mId, mData]) => {
+      const mission = getMission(mId);
+      if (!mission) return;
+      if (filterPole !== "all" && mission.pole !== filterPole) return;
+      if (filterMission !== "all" && mId !== filterMission) return;
+      
+      Object.entries(mData).forEach(([cId, wData]) => {
+        if (filterConsultant !== "all" && cId !== filterConsultant) return;
+        if (!data[cId]) data[cId] = {};
+        
+        Object.entries(wData).forEach(([wk, days]) => {
+          if (!data[cId][wk]) data[cId][wk] = { planned: 0, missions: [] };
+          const weekDays = days * 5;
+          data[cId][wk].planned += weekDays;
+          data[cId][wk].missions.push({ missionId: mId, days: weekDays });
         });
       });
     });
+    
     return data;
-  }, [forecasts, globalWeeks, filterConsultant, filterMission]);
+  }, [forecastData, filterConsultant, filterMission, filterPole]);
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const visibleWeeks = 8;
-  const displayedWeeks = globalWeeks.slice(weekOffset, weekOffset + visibleWeeks);
+  const toggleExpanded = (cId: string) => {
+    setExpandedConsultants((prev) => ({ ...prev, [cId]: !prev[cId] }));
+  };
 
-  const detailForecast = detailId !== null ? forecasts.find((f) => f.id === detailId) : null;
-
-  return (
-    <AppLayout role="admin">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-heading font-semibold text-primary">Prévisionnel</h2>
-        <Button onClick={() => setDialogOpen(true)} className="rounded-lg">
-          <Plus size={16} className="mr-1" /> Nouveau prévisionnel
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {forecasts.map((f) => {
-          const mission = getMission(f.missionId);
-          if (!mission) return null;
-          const totalDaysPerWeek = f.lines.reduce((a, l) => a + l.daysPerWeek, 0);
-          const weeks = getWeeksBetween(f.startDate, f.endDate);
-
-          return (
-            <Card key={f.id} className="border-border">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{mission.client}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{mission.project}</p>
-                  </div>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${poleColors[mission.pole]}`}>
-                    {mission.pole}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3 mb-3 text-xs">
-                  <div>
-                    <span className="label-uppercase block">Période</span>
-                    <span className="text-foreground">{f.startDate} → {f.endDate}</span>
-                  </div>
-                  <div>
-                    <span className="label-uppercase block">Semaines</span>
-                    <span className="text-foreground">{weeks.length}</span>
-                  </div>
-                  <div>
-                    <span className="label-uppercase block">Charge / sem.</span>
-                    <span className="text-foreground">{totalDaysPerWeek}j</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {f.lines.map((line) => {
-                    const c = getConsultant(line.consultantId);
-                    return (
-                      <span
-                        key={line.consultantId}
-                        className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-md"
-                      >
-                        {c?.name} · {line.daysPerWeek}j/sem
-                      </span>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setDetailId(f.id)}
-                >
-                  <Eye size={14} className="mr-1" /> Voir le comparatif
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="bg-card rounded-lg border border-border p-5 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-semibold text-primary text-base flex items-center gap-2">
-            <Calendar size={18} className="text-secondary" />
-            Planning prévisionnel
-          </h3>
-          <div className="flex items-center gap-3">
-            <Select value={filterConsultant} onValueChange={setFilterConsultant}>
-              <SelectTrigger className="w-44 h-8 text-xs">
-                <SelectValue placeholder="Consultant" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les consultants</SelectItem>
-                {consultants.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterMission} onValueChange={setFilterMission}>
-              <SelectTrigger className="w-44 h-8 text-xs">
-                <SelectValue placeholder="Mission" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les missions</SelectItem>
-                {missions.map((m) => (
-                  <SelectItem key={m.id} value={String(m.id)}>{m.client} — {m.project}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "weekly" | "monthly")}>
-              <TabsList className="h-8">
-                <TabsTrigger value="weekly" className="text-xs px-3 h-6">Semaine</TabsTrigger>
-                <TabsTrigger value="monthly" className="text-xs px-3 h-6">Mois</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+  // ── RENDER ──
+  if (role === "manager") {
+    // ═══════════════════════════════════════
+    // MANAGER VIEW: Saisie + Planning
+    // ═══════════════════════════════════════
+    const mission = getMission(selectedMission);
+    
+    return (
+      <AppLayout role="manager">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-heading font-semibold text-primary">Prévisionnel</h2>
         </div>
 
-        {globalWeeks.length > 0 ? (
-          <div className="overflow-hidden">
-            <div className="flex items-center gap-2 mb-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                disabled={weekOffset === 0}
-                onClick={() => setWeekOffset(Math.max(0, weekOffset - visibleWeeks))}
-              >
-                <ChevronLeft size={14} />
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Semaines {weekOffset + 1}–{Math.min(weekOffset + visibleWeeks, globalWeeks.length)} sur {globalWeeks.length}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                disabled={weekOffset + visibleWeeks >= globalWeeks.length}
-                onClick={() => setWeekOffset(weekOffset + visibleWeeks)}
-              >
-                <ChevronRight size={14} />
-              </Button>
-            </div>
+        <Tabs defaultValue="saisie">
+          <TabsList className="mb-6">
+            <TabsTrigger value="saisie">Saisie prévisionnel</TabsTrigger>
+            <TabsTrigger value="planning">Mon planning prévisionnel</TabsTrigger>
+          </TabsList>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left px-3 py-2 label-uppercase w-48">Consultant</th>
-                  {displayedWeeks.map((w, i) => (
-                    <th key={i} className="text-center px-1 py-2 label-uppercase text-[10px] min-w-[80px]">
-                      {w.label}
-                    </th>
-                  ))}
-                  <th className="text-center px-2 py-2 label-uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(planningData).map(([cId, weekData]) => {
-                  const c = getConsultant(cId);
-                  if (!c) return null;
-                  let rowTotal = 0;
-
-                  return (
-                    <tr key={cId} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2.5">
-                        <div className="font-medium text-foreground text-sm">{c.name}</div>
-                        <div className="text-xs text-muted-foreground">{c.profile}</div>
-                      </td>
-                      {displayedWeeks.map((_, i) => {
-                        const wi = weekOffset + i;
-                        const entries = weekData[wi] || [];
-                        const totalDays = entries.reduce((a, e) => a + e.days, 0);
-                        rowTotal += totalDays;
-                        const overloaded = totalDays > 5;
-
-                        return (
-                          <td key={i} className="text-center px-1 py-2">
-                            {entries.length > 0 ? (
-                              <div className="space-y-0.5">
-                                {entries.map((entry, ei) => {
-                                  const m = getMission(entry.missionId);
-                                  return (
-                                    <div
-                                      key={ei}
-                                      className={`text-[10px] font-medium px-1 py-0.5 rounded ${poleBgColors[m?.pole || ""] || "bg-muted"}`}
-                                      title={`${m?.client} — ${entry.days}j`}
-                                    >
-                                      {entry.days}j
-                                    </div>
-                                  );
-                                })}
-                                {overloaded && (
-                                  <div className="text-destructive text-[10px] font-bold">⚠ {totalDays}j</div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground/30">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="text-center px-2 py-2 font-semibold text-primary text-sm">
-                        {rowTotal}j
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Aucun prévisionnel créé. Commencez par ajouter un prévisionnel pour une mission.
-          </p>
-        )}
-      </div>
-
-      <Dialog open={detailId !== null} onOpenChange={(open) => !open && setDetailId(null)}>
-        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-auto">
-          {detailForecast && (() => {
-            const mission = getMission(detailForecast.missionId);
-            const weeks = getWeeksBetween(detailForecast.startDate, detailForecast.endDate);
-            const realData = realDataCache[detailForecast.id] || {};
-
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-3">
-                    <BarChart3 size={18} className="text-secondary" />
-                    Comparatif Prévu vs Réel — {mission?.client}
-                    {mission?.pole && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${poleColors[mission.pole]}`}>
-                        {mission.pole}
-                      </span>
-                    )}
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-6 mt-4">
-                  {detailForecast.lines.map((line) => {
-                    const c = getConsultant(line.consultantId);
-                    const consultantReal = realData[line.consultantId] || {};
-
-                    return (
-                      <div key={line.consultantId}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-sm text-foreground">{c?.name}</span>
-                          <span className="text-xs text-muted-foreground">({c?.profile})</span>
-                          <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded">
-                            Prévu : {line.daysPerWeek}j/sem
-                          </span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-border">
-                                <th className="text-left px-2 py-1.5 label-uppercase w-24">Semaine</th>
-                                <th className="text-center px-2 py-1.5 label-uppercase">Prévu</th>
-                                <th className="text-center px-2 py-1.5 label-uppercase">Réel</th>
-                                <th className="text-center px-2 py-1.5 label-uppercase">Écart</th>
-                                <th className="text-center px-2 py-1.5 label-uppercase">Statut</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {weeks.map((w, wi) => {
-                                const planned = line.daysPerWeek;
-                                const actual = consultantReal[wi] ?? 0;
-                                const diff = actual - planned;
-
-                                let statusColor = "text-secondary";
-                                let statusLabel = "OK";
-                                let statusBg = "bg-secondary/10";
-
-                                if (diff > 0.5) {
-                                  statusColor = "text-destructive";
-                                  statusLabel = "Dépassement";
-                                  statusBg = "bg-destructive/10";
-                                } else if (diff > 0) {
-                                  statusColor = "text-[hsl(38,80%,40%)]";
-                                  statusLabel = "Attention";
-                                  statusBg = "bg-[hsl(38,80%,50%)]/10";
-                                } else if (diff < -0.5) {
-                                  statusColor = "text-muted-foreground";
-                                  statusLabel = "Sous-charge";
-                                  statusBg = "bg-muted";
-                                }
-
-                                return (
-                                  <tr key={wi} className="border-b border-border last:border-0">
-                                    <td className="px-2 py-1.5 text-muted-foreground">{w.label}</td>
-                                    <td className="text-center px-2 py-1.5 font-medium">{planned}j</td>
-                                    <td className="text-center px-2 py-1.5 font-medium">{actual}j</td>
-                                    <td className={`text-center px-2 py-1.5 font-semibold ${statusColor}`}>
-                                      {diff > 0 ? "+" : ""}{diff}j
-                                    </td>
-                                    <td className="text-center px-2 py-1.5">
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusBg} ${statusColor}`}>
-                                        {statusLabel}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nouveau prévisionnel</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="label-uppercase block mb-1.5">Mission</label>
-              <Select value={newMissionId} onValueChange={setNewMissionId}>
-                <SelectTrigger className="border-input">
-                  <SelectValue placeholder="Sélectionner une mission" />
+          {/* ── TAB: Saisie ── */}
+          <TabsContent value="saisie">
+            <div className="flex items-center gap-4 mb-5">
+              <label className="label-uppercase">Mission</label>
+              <Select value={selectedMission} onValueChange={setSelectedMission}>
+                <SelectTrigger className="w-72 border-input">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {missions.map((m) => (
@@ -545,97 +350,483 @@ const Forecast = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {mission && (
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${poleColors[mission.pole]}`}>
+                  {mission.pole}
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-uppercase block mb-1.5">Date de début</label>
-                <Input
-                  type="date"
-                  value={newStart}
-                  onChange={(e) => setNewStart(e.target.value)}
-                  className="border-input"
-                />
-              </div>
-              <div>
-                <label className="label-uppercase block mb-1.5">Date de fin</label>
-                <Input
-                  type="date"
-                  value={newEnd}
-                  onChange={(e) => setNewEnd(e.target.value)}
-                  className="border-input"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label-uppercase block mb-1.5">Ressources</label>
-              <div className="space-y-2 mb-3">
-                {newLines.map((line) => {
-                  const c = getConsultant(line.consultantId);
-                  return (
-                    <div
-                      key={line.consultantId}
-                      className="flex items-center justify-between bg-accent/50 rounded-lg px-3 py-2"
+            <Card className="border-border mb-4">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={weekOffset === 0}
+                      onClick={() => setWeekOffset(Math.max(0, weekOffset - visibleWeekCount))}
                     >
-                      <span className="text-sm font-medium">{c?.name} <span className="text-muted-foreground">({c?.profile})</span></span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-secondary font-semibold">{line.daysPerWeek}j/sem</span>
-                        <button onClick={() => removeLineFromNew(line.consultantId)} className="text-muted-foreground hover:text-destructive">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      <ChevronLeft size={14} />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Semaines {weekOffset + 1}–{Math.min(weekOffset + visibleWeekCount, weeks.length)} sur {weeks.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={weekOffset + visibleWeekCount >= weeks.length}
+                      onClick={() => setWeekOffset(weekOffset + visibleWeekCount)}
+                    >
+                      <ChevronRight size={14} />
+                    </Button>
+                  </div>
+                  <Button size="sm" className="rounded-lg">
+                    <Save size={14} className="mr-1" /> Sauvegarder
+                  </Button>
+                </div>
 
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Select value={newLineConsultant} onValueChange={setNewLineConsultant}>
-                    <SelectTrigger className="border-input h-9 text-sm">
-                      <SelectValue placeholder="Consultant" />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-4 py-2.5 label-uppercase w-52">Consultant</th>
+                        {displayedWeeks.map((w, i) => (
+                          <th key={i} className="text-center px-1 py-2.5 label-uppercase text-[10px] min-w-[90px]">
+                            {formatWeekLabel(w)}
+                          </th>
+                        ))}
+                        <th className="text-center px-3 py-2.5 label-uppercase">Total</th>
+                        <th className="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missionConsultants.map((cId) => {
+                        const c = getConsultant(cId);
+                        if (!c) return null;
+                        const cellData = forecastData[selectedMission]?.[cId] || {};
+                        let total = 0;
+
+                        return (
+                          <tr key={cId} className="border-b border-border last:border-0 hover:bg-muted/30">
+                            <td className="px-4 py-2.5">
+                              <div className="font-medium text-foreground text-sm">{c.name}</div>
+                              <div className="text-xs text-muted-foreground">{c.profile}</div>
+                            </td>
+                            {displayedWeeks.map((w, i) => {
+                              const wk = weekKey(w);
+                              const val = cellData[wk] || 0;
+                              total += val * 5;
+                              const weekTotal = getConsultantWeekTotal(cId, wk);
+                              const overloaded = weekTotal > 1; // >5 days/week = >1 per day
+
+                              return (
+                                <td key={i} className="text-center px-1 py-1.5">
+                                  <select
+                                    value={val}
+                                    onChange={(e) => updateCell(selectedMission, cId, wk, parseFloat(e.target.value))}
+                                    className={`w-16 h-8 text-xs text-center rounded-md border bg-card focus:ring-2 focus:ring-ring cursor-pointer ${
+                                      overloaded ? "border-destructive bg-destructive/5" : "border-input"
+                                    }`}
+                                  >
+                                    {dayOptions.map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt === 0 ? "—" : `${opt}j`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {overloaded && (
+                                    <div className="text-destructive text-[9px] mt-0.5 font-semibold">
+                                      ⚠ {(weekTotal * 5).toFixed(1)}j/sem
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="text-center px-3 py-2.5 font-semibold text-primary text-sm">
+                              {total.toFixed(1)}j
+                            </td>
+                            <td className="px-1">
+                              <button
+                                onClick={() => removeConsultantFromMission(selectedMission, cId)}
+                                className="text-muted-foreground hover:text-destructive p-1"
+                              >
+                                <X size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add consultant */}
+                <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-muted/20">
+                  <Select value={addConsultantMission} onValueChange={setAddConsultantMission}>
+                    <SelectTrigger className="w-56 h-8 text-xs border-input">
+                      <SelectValue placeholder="Ajouter un consultant…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {consultants
-                        .filter((c) => !newLines.find((l) => l.consultantId === c.id))
-                        .map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} ({c.profile})
-                          </SelectItem>
-                        ))}
+                      {availableConsultantsForMission.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.profile})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={!addConsultantMission}
+                    onClick={() => addConsultantToMission(selectedMission, addConsultantMission)}
+                  >
+                    <Plus size={14} className="mr-1" /> Ajouter
+                  </Button>
                 </div>
-                <div className="w-24">
-                  <Input
-                    type="number"
-                    step={0.5}
-                    min={0.5}
-                    max={5}
-                    value={newLineDays}
-                    onChange={(e) => setNewLineDays(e.target.value)}
-                    className="border-input h-9 text-sm text-center"
-                    placeholder="j/sem"
-                  />
-                </div>
-                <Button variant="outline" size="sm" className="h-9" onClick={addLineToNew}>
-                  <Plus size={14} />
-                </Button>
-              </div>
-            </div>
-          </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-            <Button onClick={saveForecast} disabled={!newMissionId || !newStart || !newEnd || newLines.length === 0}>
-              Sauvegarder
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* ── TAB: Planning Manager ── */}
+          <TabsContent value="planning">
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar size={18} className="text-secondary" />
+                  Mon planning prévisionnel
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+                  <Button
+                    variant="outline" size="icon" className="h-7 w-7"
+                    disabled={weekOffset === 0}
+                    onClick={() => setWeekOffset(Math.max(0, weekOffset - visibleWeekCount))}
+                  >
+                    <ChevronLeft size={14} />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Semaines {weekOffset + 1}–{Math.min(weekOffset + visibleWeekCount, weeks.length)} sur {weeks.length}
+                  </span>
+                  <Button
+                    variant="outline" size="icon" className="h-7 w-7"
+                    disabled={weekOffset + visibleWeekCount >= weeks.length}
+                    onClick={() => setWeekOffset(weekOffset + visibleWeekCount)}
+                  >
+                    <ChevronRight size={14} />
+                  </Button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-4 py-2.5 label-uppercase w-52">Mission / Consultant</th>
+                        {displayedWeeks.map((w, i) => (
+                          <th key={i} className="text-center px-1 py-2.5 label-uppercase text-[10px] min-w-[80px]">
+                            {formatWeekLabel(w)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missions.map((m) => {
+                        const mData = forecastData[String(m.id)] || {};
+                        const mConsultants = Object.keys(mData);
+                        if (mConsultants.length === 0) return null;
+
+                        return (
+                          <React.Fragment key={m.id}>
+                            <tr className="border-b border-border bg-muted/30">
+                              <td className="px-4 py-2" colSpan={displayedWeeks.length + 1}>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm text-foreground">{m.client}</span>
+                                  <span className="text-xs text-muted-foreground">— {m.project}</span>
+                                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${poleColors[m.pole]}`}>{m.pole}</span>
+                                </div>
+                              </td>
+                            </tr>
+                            {mConsultants.map((cId) => {
+                              const c = getConsultant(cId);
+                              if (!c) return null;
+
+                              return (
+                                <tr key={`${m.id}-${cId}`} className="border-b border-border last:border-0">
+                                  <td className="px-4 py-2 pl-8">
+                                    <span className="text-sm text-foreground">{c.name}</span>
+                                    <span className="text-xs text-muted-foreground ml-1">({c.profile})</span>
+                                  </td>
+                                  {displayedWeeks.map((w, i) => {
+                                    const wk = weekKey(w);
+                                    const val = mData[cId]?.[wk] || 0;
+                                    const globalTotal = getConsultantWeekTotal(cId, wk);
+                                    const overloaded = globalTotal > 1;
+
+                                    return (
+                                      <td key={i} className="text-center px-1 py-1.5">
+                                        {val > 0 ? (
+                                          <div className={`inline-block text-xs font-medium px-2 py-1 rounded ${poleBgColors[m.pole] || "bg-muted"}`}>
+                                            {(val * 5).toFixed(1)}j
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground/30">—</span>
+                                        )}
+                                        {overloaded && (
+                                          <div className="text-destructive text-[9px] font-semibold">⚠ {(globalTotal * 5).toFixed(1)}j</div>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </AppLayout>
+    );
+  }
+
+  // ═══════════════════════════════════════
+  // ADMIN VIEW: Staffing global
+  // ═══════════════════════════════════════
+  return (
+    <AppLayout role="admin">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-heading font-semibold text-primary">Staffing global</h2>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-6">
+        <Select value={filterConsultant} onValueChange={setFilterConsultant}>
+          <SelectTrigger className="w-48 h-9 text-xs border-input">
+            <SelectValue placeholder="Consultant" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les consultants</SelectItem>
+            {consultants.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterMission} onValueChange={setFilterMission}>
+          <SelectTrigger className="w-52 h-9 text-xs border-input">
+            <SelectValue placeholder="Mission" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les missions</SelectItem>
+            {missions.map((m) => (
+              <SelectItem key={m.id} value={String(m.id)}>{m.client} — {m.project}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterPole} onValueChange={setFilterPole}>
+          <SelectTrigger className="w-44 h-9 text-xs border-input">
+            <SelectValue placeholder="Entité" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les entités</SelectItem>
+            {activePoles.map((p) => (
+              <SelectItem key={p} value={p}>{p}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Stacked bar chart */}
+      <Card className="border-border mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 size={18} className="text-secondary" />
+            Charge prévisionnelle par semaine
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 11 }} label={{ value: "Jours", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
+                <RechartsTooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
+                  formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {activePoles.map((pole) => (
+                  <Bar
+                    key={pole}
+                    dataKey={pole}
+                    stackId="a"
+                    fill={poleChartColors[pole] || "#999"}
+                    radius={[2, 2, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Week navigation */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant="outline" size="icon" className="h-7 w-7"
+          disabled={weekOffset === 0}
+          onClick={() => setWeekOffset(Math.max(0, weekOffset - visibleWeekCount))}
+        >
+          <ChevronLeft size={14} />
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Semaines {weekOffset + 1}–{Math.min(weekOffset + visibleWeekCount, weeks.length)} sur {weeks.length}
+        </span>
+        <Button
+          variant="outline" size="icon" className="h-7 w-7"
+          disabled={weekOffset + visibleWeekCount >= weeks.length}
+          onClick={() => setWeekOffset(weekOffset + visibleWeekCount)}
+        >
+          <ChevronRight size={14} />
+        </Button>
+      </div>
+
+      {/* Consultant detail table */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Détail par consultant</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-4 py-2.5 label-uppercase w-52">Consultant</th>
+                  {displayedWeeks.map((w, i) => (
+                    <th key={i} className="text-center px-1 py-2.5 label-uppercase text-[10px] min-w-[90px]">
+                      {formatWeekLabel(w)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(adminConsultantData).map(([cId, weekData]) => {
+                  const c = getConsultant(cId);
+                  if (!c) return null;
+                  const isExpanded = expandedConsultants[cId] || false;
+
+                  return (
+                    <React.Fragment key={cId}>
+                      <tr
+                        className="border-b border-border hover:bg-muted/30 cursor-pointer"
+                        onClick={() => toggleExpanded(cId)}
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                            <div>
+                              <div className="font-medium text-foreground text-sm">{c.name}</div>
+                              <div className="text-xs text-muted-foreground">{c.profile}</div>
+                            </div>
+                          </div>
+                        </td>
+                        {displayedWeeks.map((w, i) => {
+                          const wk = weekKey(w);
+                          const data = weekData[wk];
+                          const planned = data?.planned || 0;
+                          const real = realData[cId]?.[wk] || 0;
+                          const diff = real - planned;
+                          const overloaded = planned > 5;
+
+                          let statusClass = "text-secondary";
+                          if (diff > 0.5) statusClass = "text-destructive";
+                          else if (diff > 0) statusClass = "text-[hsl(38,80%,40%)]";
+
+                          return (
+                            <td key={i} className="text-center px-1 py-2">
+                              {planned > 0 ? (
+                                <div>
+                                  <div className="text-xs font-semibold">{planned.toFixed(1)}j</div>
+                                  <div className={`text-[10px] ${statusClass}`}>
+                                    réel: {real.toFixed(1)}j
+                                  </div>
+                                  {overloaded && (
+                                    <div className="text-destructive text-[9px] font-bold">⚠ surcharge</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground/30">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {isExpanded && (
+                        <>
+                          {(weekData[weekKey(displayedWeeks[0])]?.missions || []).length > 0 || Object.values(weekData).some(d => d.missions.length > 0) ? (
+                            // Show mission breakdown
+                            (() => {
+                              const allMissionIds = new Set<string>();
+                              Object.values(weekData).forEach((d) => {
+                                d.missions.forEach((m) => allMissionIds.add(m.missionId));
+                              });
+                              return Array.from(allMissionIds).map((mId) => {
+                                const mission = getMission(mId);
+                                if (!mission) return null;
+                                return (
+                                  <tr key={`${cId}-${mId}`} className="border-b border-border bg-muted/20">
+                                    <td className="px-4 py-1.5 pl-12">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${poleColors[mission.pole]}`}>
+                                          {mission.pole}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">{mission.client}</span>
+                                      </div>
+                                    </td>
+                                    {displayedWeeks.map((w, i) => {
+                                      const wk = weekKey(w);
+                                      const entry = weekData[wk]?.missions.find((m) => m.missionId === mId);
+                                      return (
+                                        <td key={i} className="text-center px-1 py-1">
+                                          {entry && entry.days > 0 ? (
+                                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${poleBgColors[mission.pole]}`}>
+                                              {entry.days.toFixed(1)}j
+                                            </span>
+                                          ) : (
+                                            <span className="text-muted-foreground/20 text-[10px]">—</span>
+                                          )}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              });
+                            })()
+                          ) : null}
+                        </>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </AppLayout>
   );
 };
+
+// Need React import for Fragment
+import React from "react";
 
 export default Forecast;
