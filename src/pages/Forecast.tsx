@@ -185,6 +185,7 @@ const Forecast = () => {
   const [filterConsultant, setFilterConsultant] = useState("all");
   const [filterMission, setFilterMission] = useState("all");
   const [filterPole, setFilterPole] = useState("all");
+  const [chartView, setChartView] = useState<"consultant" | "pole">("consultant");
 
   // Manager: selected mission for editing
   const [selectedMission, setSelectedMission] = useState<string>(String(missions[0].id));
