@@ -746,7 +746,6 @@ const Forecast = () => {
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
                     formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
                   {activeMissionLabels.map((label) => (
                     <Bar
                       key={label}
