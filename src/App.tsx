@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Missions from "./pages/Missions";
 import MissionDetail from "./pages/MissionDetail";
 import Settings from "./pages/Settings";
+import Forecast from "./pages/Forecast";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/missions" element={<Missions />} />
           <Route path="/missions/:id" element={<MissionDetail />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/forecast" element={<Forecast />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
