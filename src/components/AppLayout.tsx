@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Clock, Briefcase, User, LayoutDashboard, Leaf, Settings, BarChart3, Shield, ChevronDown } from "lucide-react";
+import { Clock, Briefcase, User, LayoutDashboard, Leaf, Settings, BarChart3, Shield, ChevronDown, CalendarRange } from "lucide-react";
 
 type Role = "consultant" | "manager" | "admin";
 
@@ -19,6 +19,7 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   admin: [
     { label: "Vue globale", path: "/admin", icon: Shield },
     { label: "Missions", path: "/missions", icon: Briefcase },
+    { label: "Prévisionnel", path: "/forecast", icon: CalendarRange },
     { label: "Paramètres", path: "/settings", icon: Settings },
   ],
 };
