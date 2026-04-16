@@ -33,7 +33,7 @@ import AppLayout from "@/components/AppLayout";
 const missions = [
   { id: 1, client: "EcoTech Solutions", project: "Bilan Carbone 2025", pole: "Releaf Carbon", manager: "lm" },
   { id: 2, client: "Ville de Lyon", project: "Plan Climat Territorial", pole: "Releaf Energy", manager: "cm" },
-  { id: 3, client: "AgroVert", project: "Audit Biodiversité", pole: "Releaf Biodiversity", manager: "lm" },
+  { id: 3, client: "AgroVert", project: "Formation RSE", pole: "Releaf Campus", manager: "lm" },
   { id: 4, client: "TransportPlus", project: "Mobilité Durable", pole: "Releaf LCA", manager: "cm" },
 ];
 
@@ -50,24 +50,35 @@ const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
   "Releaf LCA": "bg-secondary/10 text-secondary",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
-  "Releaf Biodiversity": "bg-accent text-accent-foreground",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/10 text-[hsl(270,50%,40%)]",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
 };
 
 const poleChartColors: Record<string, string> = {
   "Releaf Carbon": "hsl(153, 42%, 18%)",
   "Releaf LCA": "hsl(152, 44%, 52%)",
   "Releaf Energy": "hsl(38, 80%, 50%)",
-  "Releaf Water": "hsl(200, 70%, 50%)",
-  "Releaf Biodiversity": "hsl(138, 44%, 60%)",
+  "Releaf Tools": "hsl(270, 50%, 55%)",
+  "Releaf Campus": "hsl(200, 70%, 50%)",
 };
+
+// Mission chart colors (for per-consultant stacked bars)
+const missionChartColors: string[] = [
+  "hsl(153, 42%, 18%)",
+  "hsl(152, 44%, 52%)",
+  "hsl(38, 80%, 50%)",
+  "hsl(270, 50%, 55%)",
+  "hsl(200, 70%, 50%)",
+  "hsl(340, 60%, 50%)",
+  "hsl(20, 70%, 55%)",
+];
 
 const poleBgColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/20",
   "Releaf LCA": "bg-secondary/20",
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/20",
-  "Releaf Water": "bg-[hsl(200,70%,50%)]/20",
-  "Releaf Biodiversity": "bg-accent/60",
+  "Releaf Tools": "bg-[hsl(270,50%,55%)]/20",
+  "Releaf Campus": "bg-[hsl(200,70%,50%)]/20",
 };
 
 const dayOptions = [0, 0.25, 0.5, 0.75, 1];
@@ -174,6 +185,7 @@ const Forecast = () => {
   const [filterConsultant, setFilterConsultant] = useState("all");
   const [filterMission, setFilterMission] = useState("all");
   const [filterPole, setFilterPole] = useState("all");
+  const [chartView, setChartView] = useState<"consultant" | "pole">("consultant");
 
   // Manager: selected mission for editing
   const [selectedMission, setSelectedMission] = useState<string>(String(missions[0].id));
@@ -247,34 +259,84 @@ const Forecast = () => {
     return total;
   };
 
-  // ── Admin: chart data ──
-  const chartData = useMemo(() => {
+  // ── Admin: chart data by pole (secondary view) ──
+  const chartDataByPole = useMemo(() => {
     return displayedWeeks.map((w) => {
       const wk = weekKey(w);
       const entry: Record<string, any> = { week: formatWeekLabel(w) };
-      const uniquePoles = new Set<string>();
-      
       Object.entries(forecastData).forEach(([mId, mData]) => {
         const mission = getMission(mId);
         if (!mission) return;
         if (filterPole !== "all" && mission.pole !== filterPole) return;
-        
         let missionTotal = 0;
         Object.entries(mData).forEach(([cId, weeks]) => {
           if (filterConsultant !== "all" && cId !== filterConsultant) return;
-          missionTotal += (weeks[wk] || 0) * 5; // convert daily fraction to weekly days
+          missionTotal += (weeks[wk] || 0) * 5;
         });
-        
         if (missionTotal > 0) {
-          const key = mission.pole;
-          entry[key] = (entry[key] || 0) + missionTotal;
-          uniquePoles.add(key);
+          entry[mission.pole] = (entry[mission.pole] || 0) + missionTotal;
         }
       });
-      
       return entry;
     });
   }, [forecastData, displayedWeeks, filterConsultant, filterPole]);
+
+  // ── Admin: chart data by consultant (primary view) ──
+  const chartDataByConsultant = useMemo(() => {
+    // Build per-consultant data: each bar = a consultant, stacked segments = missions
+    const filteredConsultants = filterConsultant !== "all"
+      ? consultants.filter((c) => c.id === filterConsultant)
+      : consultants;
+
+    return filteredConsultants.map((c) => {
+      const entry: Record<string, any> = { consultant: c.name };
+      let hasData = false;
+      Object.entries(forecastData).forEach(([mId, mData]) => {
+        const mission = getMission(mId);
+        if (!mission) return;
+        if (filterPole !== "all" && mission.pole !== filterPole) return;
+        if (filterMission !== "all" && mId !== filterMission) return;
+        if (!mData[c.id]) return;
+        let total = 0;
+        displayedWeeks.forEach((w) => {
+          const wk = weekKey(w);
+          total += (mData[c.id]?.[wk] || 0) * 5;
+        });
+        if (total > 0) {
+          const missionLabel = `${mission.client} — ${mission.project}`;
+          entry[missionLabel] = Math.round(total * 10) / 10;
+          hasData = true;
+        }
+      });
+      return hasData ? entry : null;
+    }).filter(Boolean);
+  }, [forecastData, displayedWeeks, filterConsultant, filterMission, filterPole]);
+
+  // Get unique mission labels for the chart
+  const activeMissionLabels = useMemo(() => {
+    const labels = new Set<string>();
+    Object.entries(forecastData).forEach(([mId, mData]) => {
+      const mission = getMission(mId);
+      if (!mission) return;
+      if (filterPole !== "all" && mission.pole !== filterPole) return;
+      if (filterMission !== "all" && mId !== filterMission) return;
+      const hasAnyData = Object.values(mData).some((wData) =>
+        displayedWeeks.some((w) => (wData[weekKey(w)] || 0) > 0)
+      );
+      if (hasAnyData) labels.add(`${mission.client} — ${mission.project}`);
+    });
+    return Array.from(labels);
+  }, [forecastData, displayedWeeks, filterPole, filterMission]);
+
+  // Map mission labels to colors based on their pole
+  const missionLabelColors = useMemo(() => {
+    const map: Record<string, string> = {};
+    missions.forEach((m, i) => {
+      const label = `${m.client} — ${m.project}`;
+      map[label] = poleChartColors[m.pole] || missionChartColors[i % missionChartColors.length];
+    });
+    return map;
+  }, []);
 
   const activePoles = useMemo(() => {
     const poles = new Set<string>();
@@ -644,40 +706,99 @@ const Forecast = () => {
         </Select>
       </div>
 
-      {/* Stacked bar chart */}
-      <Card className="border-border mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 size={18} className="text-secondary" />
-            Charge prévisionnelle par semaine
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
-                <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 11 }} label={{ value: "Jours", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
-                <RechartsTooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
-                  formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {activePoles.map((pole) => (
-                  <Bar
-                    key={pole}
-                    dataKey={pole}
-                    stackId="a"
-                    fill={poleChartColors[pole] || "#999"}
-                    radius={[2, 2, 0, 0]}
+      {/* Chart view toggle */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant={chartView === "consultant" ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={() => setChartView("consultant")}
+        >
+          Par consultant
+        </Button>
+        <Button
+          variant={chartView === "pole" ? "default" : "outline"}
+          size="sm"
+          className="text-xs"
+          onClick={() => setChartView("pole")}
+        >
+          Par pôle
+        </Button>
+      </div>
+
+      {/* Stacked bar chart - Per Consultant */}
+      {chartView === "consultant" && (
+        <Card className="border-border mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 size={18} className="text-secondary" />
+              Charge prévisionnelle par consultant (période affichée)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartDataByConsultant} layout="vertical" margin={{ top: 10, right: 30, left: 120, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} label={{ value: "Jours totaux", position: "insideBottom", offset: -5, style: { fontSize: 11 } }} />
+                  <YAxis dataKey="consultant" type="category" tick={{ fontSize: 11 }} width={110} />
+                  <RechartsTooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
+                    formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  {activeMissionLabels.map((label) => (
+                    <Bar
+                      key={label}
+                      dataKey={label}
+                      stackId="a"
+                      fill={missionLabelColors[label] || "#999"}
+                      radius={[0, 2, 2, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stacked bar chart - Per Pole */}
+      {chartView === "pole" && (
+        <Card className="border-border mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 size={18} className="text-secondary" />
+              Charge prévisionnelle par semaine (par pôle)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartDataByPole} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} label={{ value: "Jours", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
+                  <RechartsTooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(150,25%,91%)" }}
+                    formatter={(value: number, name: string) => [`${value.toFixed(1)}j`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {activePoles.map((pole) => (
+                    <Bar
+                      key={pole}
+                      dataKey={pole}
+                      stackId="a"
+                      fill={poleChartColors[pole] || "#999"}
+                      radius={[2, 2, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Week navigation */}
       <div className="flex items-center gap-2 mb-4">
