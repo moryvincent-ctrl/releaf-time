@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Leaf } from "lucide-react";
+import ReleafLogo from "@/components/ReleafLogo";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -18,11 +18,8 @@ const LoginPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-accent">
       <div className="w-full max-w-sm">
         <div className="bg-card rounded-xl border border-border p-8">
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <Leaf size={28} className="text-secondary" />
-            <span className="font-heading font-semibold text-xl text-primary">
-              Releaf <span className="font-normal">Time</span>
-            </span>
+          <div className="flex items-center justify-center mb-8">
+            <ReleafLogo size="md" />
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
