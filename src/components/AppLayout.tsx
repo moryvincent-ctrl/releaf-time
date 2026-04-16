@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Clock, Briefcase, User, LayoutDashboard, Leaf, Settings, BarChart3, Shield, ChevronDown, CalendarRange } from "lucide-react";
+import { Clock, Briefcase, User, LayoutDashboard, Settings, BarChart3, Shield, ChevronDown, CalendarRange } from "lucide-react";
+import ReleafLogoWhite from "@/components/ReleafLogoWhite";
 
 type Role = "consultant" | "manager" | "admin";
 
@@ -37,11 +38,8 @@ const AppLayout = ({ children, role = "consultant" }: AppLayoutProps) => {
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 bg-primary flex flex-col flex-shrink-0">
-        <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
-          <Leaf size={24} className="text-secondary" />
-          <span className="font-heading font-semibold text-lg text-sidebar-foreground">
-            Releaf <span className="font-normal">Time</span>
-          </span>
+        <div className="flex items-center px-5 py-5 border-b border-sidebar-border">
+          <ReleafLogoWhite size="sm" />
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
