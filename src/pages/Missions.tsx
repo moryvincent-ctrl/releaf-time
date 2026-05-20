@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import BudgetBar from "@/components/BudgetBar";
-
-const poles = ["Releaf Carbon", "Releaf LCA", "Releaf Energy", "Releaf Water", "Releaf Biodiversity"];
+import { useAllMissions } from "@/hooks/useMissionsData";
 
 const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
@@ -10,80 +10,33 @@ const poleColors: Record<string, string> = {
   "Releaf Energy": "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
   "Releaf Water": "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
   "Releaf Biodiversity": "bg-accent text-accent-foreground",
+  "Releaf Campus": "bg-[hsl(270,60%,55%)]/10 text-[hsl(270,60%,45%)]",
 };
 
-const missions = [
-  {
-    id: 1,
-    client: "EcoTech Solutions",
-    project: "Bilan Carbone 2025",
-    pole: "Releaf Carbon",
-    manager: "Claire Moreau",
-    startDate: "01/01/2025",
-    endDate: "30/06/2025",
-    budgetTotal: 120,
-    consumed: 78,
-    consultants: [
-      { initials: "MD", name: "Marie Dupont" },
-      { initials: "LM", name: "Luc Martin" },
-    ],
-  },
-  {
-    id: 2,
-    client: "Ville de Lyon",
-    project: "Plan Climat Territorial",
-    pole: "Releaf Energy",
-    manager: "Sophie Bernard",
-    startDate: "15/02/2025",
-    endDate: "15/09/2025",
-    budgetTotal: 200,
-    consumed: 185,
-    consultants: [
-      { initials: "SB", name: "Sophie Bernard" },
-      { initials: "AP", name: "Antoine Petit" },
-    ],
-  },
-  {
-    id: 3,
-    client: "AgroVert",
-    project: "Audit Biodiversité",
-    pole: "Releaf Biodiversity",
-    manager: "Claire Moreau",
-    startDate: "01/03/2025",
-    endDate: "31/07/2025",
-    budgetTotal: 80,
-    consumed: 92,
-    consultants: [
-      { initials: "CM", name: "Claire Moreau" },
-      { initials: "JL", name: "Julie Lambert" },
-    ],
-  },
-  {
-    id: 4,
-    client: "TransportPlus",
-    project: "Mobilité Durable",
-    pole: "Releaf LCA",
-    manager: "Luc Martin",
-    startDate: "10/03/2025",
-    endDate: "10/12/2025",
-    budgetTotal: 150,
-    consumed: 45,
-    consultants: [
-      { initials: "MD", name: "Marie Dupont" },
-      { initials: "LM", name: "Luc Martin" },
-    ],
-  },
-];
-
 const Missions = () => {
+  const { data: missions = [], isLoading } = useAllMissions();
+
+  if (isLoading) {
+    return (
+      <AppLayout role="admin">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin text-secondary" size={32} />
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout role="admin">
       <h2 className="text-xl font-heading font-semibold text-primary mb-6">Missions</h2>
 
-      <div className="grid grid-cols-2 gap-4">
-        {missions.map((m) => {
-          const percent = Math.round((m.consumed / m.budgetTotal) * 100);
-          return (
+      {missions.length === 0 ? (
+        <div className="bg-card rounded-lg border border-border p-12 text-center text-muted-foreground">
+          Aucune mission — configure la sync Notion dans Settings puis lance-la.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {missions.map((m) => (
             <Link
               key={m.id}
               to={`/missions/${m.id}`}
@@ -114,7 +67,7 @@ const Missions = () => {
                 </div>
               </div>
 
-              <BudgetBar percent={percent} />
+              <BudgetBar percent={m.percent} />
 
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-1.5">
@@ -136,9 +89,9 @@ const Missions = () => {
                 </span>
               </div>
             </Link>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </AppLayout>
   );
 };
