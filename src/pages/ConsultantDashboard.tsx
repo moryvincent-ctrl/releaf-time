@@ -1,35 +1,72 @@
-import { Clock, Briefcase, Activity } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Clock, Briefcase, Activity, Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
-
-const recentWeeks = [
-  { week: "17–21 mars 2025", hours: 38, missions: 3 },
-  { week: "10–14 mars 2025", hours: 40, missions: 4 },
-  { week: "3–7 mars 2025", hours: 35, missions: 3 },
-  { week: "24–28 fév 2025", hours: 37, missions: 3 },
-];
-
-const activeMissions = [
-  { client: "EcoTech Solutions", project: "Bilan Carbone 2025", budget: 65, status: "En cours" },
-  { client: "Ville de Lyon", project: "Plan Climat Territorial", budget: 42, status: "En cours" },
-  { client: "AgroVert", project: "Audit Biodiversité", budget: 88, status: "Alerte" },
-  { client: "TransportPlus", project: "Mobilité Durable", budget: 20, status: "En cours" },
-];
+import { useConsultantDashboard } from "@/hooks/useConsultantDashboard";
 
 const ConsultantDashboard = () => {
+  const { data, isLoading } = useConsultantDashboard();
+
+  if (isLoading || !data) {
+    return (
+      <AppLayout role="consultant">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin text-secondary" size={32} />
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout role="consultant">
       <h2 className="text-xl font-heading font-semibold text-primary mb-6">Mon tableau de bord</h2>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <KpiCard icon={<Clock size={18} />} label="Heures cette semaine" value="38h" />
-        <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value="4" />
-        <KpiCard icon={<Activity size={18} />} label="Charge actuelle" value="95%" />
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <KpiCard icon={<Clock size={18} />} label="Heures cette semaine" value={`${data.hoursThisWeek}h`} />
+        <KpiCard
+          icon={<Activity size={18} />}
+          label={`Charge client (${data.chargeClient}%)`}
+          value={`${data.clientHoursThisWeek}h`}
+        />
+        <KpiCard
+          icon={<Activity size={18} />}
+          label={`Charge interne (${data.chargeInternal}%)`}
+          value={`${data.internalHoursThisWeek}h`}
+        />
+        <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${data.activeMissionsCount}`} />
+      </div>
+
+      {/* Répartition charge cette semaine */}
+      <div className="bg-card rounded-lg border border-border p-4 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="label-uppercase">Charge cette semaine (base {data.weeklyBase}h)</span>
+          <span className="text-xs text-muted-foreground">{data.charge}% — {data.hoursThisWeek}h / {data.weeklyBase}h</span>
+        </div>
+        <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+          <div
+            className="bg-secondary"
+            style={{ width: `${Math.min(data.chargeClient, 100)}%` }}
+            title={`Client ${data.clientHoursThisWeek}h (${data.chargeClient}%)`}
+          />
+          <div
+            className="bg-primary"
+            style={{ width: `${Math.min(data.chargeInternal, Math.max(0, 100 - data.chargeClient))}%` }}
+            title={`Interne ${data.internalHoursThisWeek}h (${data.chargeInternal}%)`}
+          />
+        </div>
+        <div className="flex gap-4 mt-2 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-secondary" /> Client {data.clientHoursThisWeek}h
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Interne {data.internalHoursThisWeek}h
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* Recent weeks */}
+        {/* Historique récent */}
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h3 className="label-uppercase">Historique récent</h3>
@@ -43,7 +80,7 @@ const ConsultantDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {recentWeeks.map((w, i) => (
+              {data.recentWeeks.map((w, i) => (
                 <tr key={i} className="border-b border-border last:border-b-0">
                   <td className="px-4 py-2.5 text-sm">{w.week}</td>
                   <td className="px-4 py-2.5 text-sm text-right font-semibold text-primary">{w.hours}h</td>
@@ -54,27 +91,39 @@ const ConsultantDashboard = () => {
           </table>
         </div>
 
-        {/* Active missions */}
+        {/* Missions en cours */}
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h3 className="label-uppercase">Missions en cours</h3>
           </div>
-          <div className="divide-y divide-border">
-            {activeMissions.map((m, i) => (
-              <div key={i} className="px-4 py-3">
-                <div className="flex justify-between items-start mb-1">
-                  <div>
-                    <div className="text-sm font-medium">{m.client}</div>
-                    <div className="text-xs text-muted-foreground">{m.project}</div>
+          {data.missions.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucune mission active assignée pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.missions.map((m) => (
+                <Link
+                  key={m.id}
+                  to={`/missions/${m.id}`}
+                  className="block px-4 py-3 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <div className="text-sm font-medium">{m.client}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${m.budget >= 80 ? "bg-destructive/10 text-destructive" : "bg-accent text-accent-foreground"}`}>
+                      {m.status}
+                    </span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${m.budget >= 80 ? "bg-destructive/10 text-destructive" : "bg-accent text-accent-foreground"}`}>
-                    {m.status}
-                  </span>
-                </div>
-                <BudgetBar percent={m.budget} />
-              </div>
-            ))}
-          </div>
+                  <BudgetBar percent={m.budget} />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>

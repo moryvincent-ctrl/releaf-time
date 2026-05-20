@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Download, AlertTriangle, TrendingUp, Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
@@ -44,7 +45,11 @@ const ManagerDashboard = () => {
       ) : (
         <div className="space-y-4">
           {missions.map((m) => (
-            <div key={m.id} className="bg-card rounded-lg border border-border p-5">
+            <Link
+              key={m.id}
+              to={`/missions/${m.id}`}
+              className="block bg-card rounded-lg border border-border p-5 hover:border-secondary transition-colors"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="font-heading font-semibold text-primary">{m.client}</div>
@@ -100,7 +105,7 @@ const ManagerDashboard = () => {
                   </tbody>
                 </table>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}
