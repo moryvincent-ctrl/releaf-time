@@ -9,15 +9,16 @@ import KpiCard from "@/components/KpiCard";
 import { useAdminStats, useAdminEntries } from "@/hooks/useAdminData";
 import { format } from "date-fns";
 
+// Palette pour les catégories internes (distincte du vert client)
 const INTERNAL_COLORS = [
-  "#1B4332", // primary
-  "#74C69D", // secondary clair
+  "#002E22", // ink
+  "#689B87", // sage
+  "#C8A7EE", // mint-dark (lavande)
+  "#F0D7FF", // mint pâle
   "#D4A373", // ocre
   "#E07A5F", // terracotta
-  "#81B29A", // sauge
   "#8E94A8", // gris bleu
   "#B5838D", // rosé
-  "#9C89B8", // violet doux
 ];
 
 const AdminDashboard = () => {
@@ -79,13 +80,13 @@ const AdminDashboard = () => {
                   {(stats?.repartition ?? []).map((slice, i) => (
                     <Cell
                       key={i}
-                      fill={slice.isClient ? "#52B788" : INTERNAL_COLORS[i % INTERNAL_COLORS.length]}
+                      fill={slice.isClient ? "#007F5F" : INTERNAL_COLORS[i % INTERNAL_COLORS.length]}
                     />
                   ))}
                 </Pie>
                 <Tooltip
                   formatter={(value: any, _name: any, props: any) => [`${value}h (${props.payload.percent}%)`, props.payload.name]}
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(150, 25%, 91%)", borderRadius: "8px", fontSize: "13px" }}
+                  contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(156, 20%, 88%)", borderRadius: "8px", fontSize: "13px" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -94,7 +95,7 @@ const AdminDashboard = () => {
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span
                     className="w-3 h-3 rounded-sm flex-shrink-0"
-                    style={{ backgroundColor: slice.isClient ? "#52B788" : INTERNAL_COLORS[i % INTERNAL_COLORS.length] }}
+                    style={{ backgroundColor: slice.isClient ? "#007F5F" : INTERNAL_COLORS[i % INTERNAL_COLORS.length] }}
                   />
                   <span className="flex-1 truncate">{slice.name}</span>
                   <span className="font-semibold text-primary">{slice.hours}h</span>
@@ -115,15 +116,15 @@ const AdminDashboard = () => {
           <>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={stats?.weekByConsultant ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(150, 25%, 91%)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(156, 20%, 88%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#1C1C1C" }} />
                 <YAxis tick={{ fontSize: 12, fill: "#1C1C1C" }} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(150, 25%, 91%)", borderRadius: "8px", fontSize: "13px" }}
+                  contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(156, 20%, 88%)", borderRadius: "8px", fontSize: "13px" }}
                   formatter={(value: any, name: any) => [`${value}h`, name === "client" ? "Client" : "Interne"]}
                 />
-                <Bar dataKey="client" stackId="a" fill="#52B788" name="Client" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="internal" stackId="a" fill="#1B4332" name="Interne" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="client" stackId="a" fill="#007F5F" name="Client" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="internal" stackId="a" fill="#002E22" name="Interne" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
 

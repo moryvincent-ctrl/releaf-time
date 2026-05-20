@@ -4,29 +4,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Charte Releaf 2026 ───────────────────────────────────────────────────
+   ink       #002E22 → texte principal, headlines        — 164 100% 9%
+   accent    #007F5F → CTAs, liens, eyebrows             — 165 100% 25%
+   sage      #689B87 → texte secondaire, bordures        — 156 20% 51%
+   cream     #FFFFEB → fond de page                      —  60 100% 96%
+   mint      #F0D7FF → highlight, sélection              — 278 100% 92%
+   mint-dark #C8A7EE → focus ring, variante mint         — 268 67% 79%
+   ─────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 150 11% 97%;
-    --foreground: 0 0% 11%;
+    --background: 60 100% 96%;             /* cream */
+    --foreground: 164 100% 9%;             /* ink */
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 11%;
-    --card-border: 150 25% 91%;
+    --card: 0 0% 100%;                     /* blanc pur */
+    --card-foreground: 164 100% 9%;        /* ink */
+    --card-border: 156 20% 88%;            /* sage très clair */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 11%;
+    --popover-foreground: 164 100% 9%;
 
-    --primary: 153 42% 18%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 164 100% 9%;                /* ink */
+    --primary-foreground: 60 100% 96%;     /* cream */
 
-    --secondary: 152 44% 52%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 165 100% 25%;             /* accent vert vif */
+    --secondary-foreground: 60 100% 96%;   /* cream */
 
-    --muted: 138 44% 91%;
-    --muted-foreground: 153 42% 18%;
+    --muted: 278 60% 96%;                  /* mint très clair (pour bandes / footers) */
+    --muted-foreground: 156 20% 45%;       /* sage légèrement plus sombre pour lisibilité */
 
-    --accent: 138 44% 91%;
-    --accent-foreground: 153 42% 18%;
+    --accent: 278 100% 92%;                /* mint lavande */
+    --accent-foreground: 164 100% 9%;      /* ink (texte sur mint) */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -34,20 +43,20 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 150 25% 91%;
-    --input: 150 20% 82%;
-    --ring: 152 44% 52%;
+    --border: 156 20% 88%;                 /* sage très clair */
+    --input: 156 20% 80%;                  /* sage clair */
+    --ring: 268 67% 79%;                   /* mint-dark (focus ring lavande) */
 
     --radius: 0.75rem;
 
-    --sidebar-background: 153 42% 18%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 153 42% 18%;
-    --sidebar-accent: 138 44% 91%;
-    --sidebar-accent-foreground: 153 42% 18%;
-    --sidebar-border: 153 42% 24%;
-    --sidebar-ring: 152 44% 52%;
+    --sidebar-background: 164 100% 9%;     /* ink */
+    --sidebar-foreground: 60 100% 96%;     /* cream */
+    --sidebar-primary: 60 100% 96%;        /* cream */
+    --sidebar-primary-foreground: 164 100% 9%;
+    --sidebar-accent: 165 100% 25%;        /* accent vert pour items actifs */
+    --sidebar-accent-foreground: 60 100% 96%;
+    --sidebar-border: 164 100% 14%;        /* ink un peu plus clair */
+    --sidebar-ring: 268 67% 79%;           /* mint-dark */
   }
 }
 
