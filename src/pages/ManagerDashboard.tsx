@@ -1,19 +1,20 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle, TrendingUp, Loader2 } from "lucide-react";
+import { Clock, Briefcase, Activity, AlertTriangle, Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
-import { useManagerMissions } from "@/hooks/useManagerData";
+import { useManagerDashboard } from "@/hooks/useManagerData";
+
+const alertCopy: Record<"warning" | "critical" | "exceeded", { label: string; className: string; emoji: string }> = {
+  warning: { label: "75% du budget atteint", className: "bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,40%)]", emoji: "🟡" },
+  critical: { label: "90% du budget atteint", className: "bg-destructive/10 text-destructive", emoji: "🔴" },
+  exceeded: { label: "Budget dépassé", className: "bg-destructive/10 text-destructive", emoji: "🔴" },
+};
 
 const ManagerDashboard = () => {
-  const { data: missions = [], isLoading } = useManagerMissions();
+  const { data, isLoading } = useManagerDashboard();
 
-  const totalBudget = missions.reduce((a, m) => a + Number(m.budget_days), 0);
-  const totalConsumed = missions.reduce((a, m) => a + m.consumed_days, 0);
-  const alertCount = missions.filter((m) => m.alerts.length > 0).length;
-
-  if (isLoading) {
+  if (isLoading || !data) {
     return (
       <AppLayout role="manager">
         <div className="flex items-center justify-center h-64">
@@ -25,90 +26,190 @@ const ManagerDashboard = () => {
 
   return (
     <AppLayout role="manager">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-heading font-semibold text-primary">Mes missions</h2>
-        <Button variant="outline" className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground">
-          <Download size={16} className="mr-2" /> Exporter CSV
-        </Button>
+      <h2 className="text-xl font-heading font-semibold text-primary mb-6">Mon tableau de bord</h2>
+
+      {/* 4 KPI identiques au consultant */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <KpiCard icon={<Clock size={18} />} label="Heures cette semaine" value={`${data.hoursThisWeek}h`} />
+        <KpiCard
+          icon={<Activity size={18} />}
+          label={`Charge client (${data.chargeClient}%)`}
+          value={`${data.clientHoursThisWeek}h`}
+        />
+        <KpiCard
+          icon={<Activity size={18} />}
+          label={`Charge interne (${data.chargeInternal}%)`}
+          value={`${data.internalHoursThisWeek}h`}
+        />
+        <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${data.activeMissionsCount}`} />
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <KpiCard icon={<TrendingUp size={18} />} label="Budget total" value={`${Math.round(totalBudget)}j`} />
-        <KpiCard icon={<TrendingUp size={18} />} label="Temps consommé" value={`${Math.round(totalConsumed * 10) / 10}j`} />
-        <KpiCard icon={<AlertTriangle size={18} />} label="Alertes actives" value={`${alertCount}`} />
+      {/* Répartition charge cette semaine */}
+      <div className="bg-card rounded-lg border border-border p-4 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="label-uppercase">Charge cette semaine (base {data.weeklyBase}h)</span>
+          <span className="text-xs text-muted-foreground">{data.charge}% — {data.hoursThisWeek}h / {data.weeklyBase}h</span>
+        </div>
+        <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+          <div className="bg-secondary" style={{ width: `${Math.min(data.chargeClient, 100)}%` }} title={`Client ${data.clientHoursThisWeek}h (${data.chargeClient}%)`} />
+          <div className="bg-primary" style={{ width: `${Math.min(data.chargeInternal, Math.max(0, 100 - data.chargeClient))}%` }} title={`Interne ${data.internalHoursThisWeek}h (${data.chargeInternal}%)`} />
+        </div>
+        <div className="flex gap-4 mt-2 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-secondary" /> Client {data.clientHoursThisWeek}h
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Interne {data.internalHoursThisWeek}h
+          </span>
+        </div>
       </div>
 
-      {missions.length === 0 ? (
-        <div className="bg-card rounded-lg border border-border p-12 text-center text-muted-foreground">
-          Aucune mission — assure-toi d'être assigné comme Manager dans Notion puis relance la sync.
+      {/* Alertes sur les missions qu'il gère */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden mb-6">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="label-uppercase flex items-center gap-2">
+            <AlertTriangle size={14} className="text-destructive" />
+            Alertes sur mes missions
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {data.alerts.length} mission{data.alerts.length > 1 ? "s" : ""} ≥ 80% du budget
+          </span>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {missions.map((m) => (
-            <Link
-              key={m.id}
-              to={`/missions/${m.id}`}
-              className="block bg-card rounded-lg border border-border p-5 hover:border-secondary transition-colors"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="font-heading font-semibold text-primary">{m.client}</div>
-                  {m.nature_mission && (
-                    <div className="text-sm font-medium text-secondary">{m.nature_mission}</div>
-                  )}
-                  <div className="text-xs text-muted-foreground">{m.name}</div>
-                </div>
-                <div className="flex gap-2 flex-wrap justify-end">
-                  {m.alerts.includes("warning") && (
-                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]">
-                      🟡 75% budget
-                    </span>
-                  )}
-                  {m.alerts.includes("critical") && (
-                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-destructive/10 text-destructive">
-                      🔴 90% budget
-                    </span>
-                  )}
-                  {m.alerts.includes("exceeded") && (
-                    <span className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-destructive/10 text-destructive">
-                      🔴 Budget dépassé
-                    </span>
-                  )}
-                </div>
-              </div>
+        {data.alerts.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+            Aucune mission ne dépasse 80% du budget pour le moment.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {data.alerts.map((m) => {
+              const copy = alertCopy[m.alert as "warning" | "critical" | "exceeded"];
+              return (
+                <Link
+                  key={m.id}
+                  to={`/missions/${m.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{m.client}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground whitespace-nowrap">
+                    {m.consumed}j / {m.budgetDays}j ({m.budget}%)
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap ${copy.className}`}>
+                    {copy.emoji} {copy.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-              <div className="mb-3">
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>{m.consumed_days}j / {m.budget_days}j</span>
-                  <span>{m.percent}%</span>
-                </div>
-                <BudgetBar percent={m.percent} showLabel={false} />
-              </div>
-
-              {m.consultants.length > 0 && (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 label-uppercase">Consultant</th>
-                      <th className="text-right py-2 label-uppercase">Heures</th>
-                      <th className="text-right py-2 label-uppercase">% budget</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {m.consultants.map((c, ci) => (
-                      <tr key={ci} className="border-b border-border last:border-b-0">
-                        <td className="py-2 text-sm">{c.name}</td>
-                        <td className="py-2 text-sm text-right font-semibold text-primary">{c.hours}h</td>
-                        <td className="py-2 text-sm text-right text-muted-foreground">{c.percent}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </Link>
-          ))}
+      {/* Historique + Missions en cours */}
+      <div className="grid grid-cols-2 gap-6">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="label-uppercase">Historique récent</h3>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left px-4 py-2 label-uppercase">Semaine</th>
+                <th className="text-right px-4 py-2 label-uppercase">Heures</th>
+                <th className="text-right px-4 py-2 label-uppercase">Missions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.recentWeeks.map((w, i) => (
+                <tr key={i} className="border-b border-border last:border-b-0">
+                  <td className="px-4 py-2.5 text-sm">{w.week}</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-semibold text-primary">{w.hours}h</td>
+                  <td className="px-4 py-2.5 text-sm text-right text-muted-foreground">{w.missions}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <h3 className="label-uppercase">Missions en cours</h3>
+            <span className="text-xs text-muted-foreground">{data.missions.length}</span>
+          </div>
+          {data.missions.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucune mission active à gérer pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.missions.map((m) => (
+                <Link
+                  key={m.id}
+                  to={`/missions/${m.id}`}
+                  className="block px-4 py-3 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <div className="text-sm font-medium">{m.client}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${m.budget >= 80 ? "bg-destructive/10 text-destructive" : "bg-accent text-accent-foreground"}`}>
+                      {m.budget >= 80 ? "Alerte" : "En cours"}
+                    </span>
+                  </div>
+                  <BudgetBar percent={Math.min(m.budget, 100)} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Missions terminées */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden mt-6">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="label-uppercase">Missions terminées</h3>
+          <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
+        </div>
+        {data.missionsCompleted.length === 0 ? (
+          <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+            Aucune mission terminée pour le moment.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {data.missionsCompleted.map((m) => (
+              <Link
+                key={m.id}
+                to={`/missions/${m.id}`}
+                className="block px-4 py-3 hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <div className="text-sm font-medium">{m.client}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {m.consumed}j / {m.budgetDays}j ({m.budget}%)
+                    </span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                      Terminé
+                    </span>
+                  </div>
+                </div>
+                <BudgetBar percent={Math.min(m.budget, 100)} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </AppLayout>
   );
 };

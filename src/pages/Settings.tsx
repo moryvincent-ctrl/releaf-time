@@ -141,7 +141,7 @@ const Settings = () => {
       queryClient.invalidateQueries({ queryKey: ["missions"] });
       queryClient.invalidateQueries({ queryKey: ["assigned_missions"] });
       queryClient.invalidateQueries({ queryKey: ["all_missions"] });
-      queryClient.invalidateQueries({ queryKey: ["manager_missions"] });
+      queryClient.invalidateQueries({ queryKey: ["manager_dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["mission_detail"] });
       queryClient.invalidateQueries({ queryKey: ["admin_stats"] });
       queryClient.invalidateQueries({ queryKey: ["admin_entries"] });
