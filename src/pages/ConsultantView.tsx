@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AppLayout from "@/components/AppLayout";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useTimeEntries,
   useAssignedMissions,
@@ -46,6 +48,7 @@ function buildKey(missionId: string | null, category: string | null) {
 
 const ConsultantView = () => {
   const today = new Date();
+  const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(getWeekStart(today));
   const weekDays = getWeekDays(weekStart);
 
@@ -163,6 +166,13 @@ const ConsultantView = () => {
           )
         )
       );
+      // Marque la sauvegarde (utilisé par le rappel email hebdo)
+      if (user?.id) {
+        await supabase
+          .from("profiles")
+          .update({ last_save_at: new Date().toISOString() })
+          .eq("id", user.id);
+      }
       toast.success("Feuille de temps sauvegardée");
     } catch {
       toast.error("Erreur lors de la sauvegarde");
