@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import ConsultantView from "./pages/ConsultantView";
 import ConsultantDashboard from "./pages/ConsultantDashboard";
@@ -17,23 +19,75 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/consultant" element={<ConsultantView />} />
-          <Route path="/consultant/dashboard" element={<ConsultantDashboard />} />
-          <Route path="/manager" element={<ManagerDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/missions" element={<Missions />} />
-          <Route path="/missions/:id" element={<MissionDetail />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LoginPage />} />
+
+            <Route
+              path="/consultant"
+              element={
+                <ProtectedRoute allowedRoles={["consultant", "manager", "admin"]}>
+                  <ConsultantView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/consultant/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["consultant", "manager", "admin"]}>
+                  <ConsultantDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/manager"
+              element={
+                <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                  <ManagerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/missions"
+              element={
+                <ProtectedRoute>
+                  <Missions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/missions/:id"
+              element={
+                <ProtectedRoute>
+                  <MissionDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

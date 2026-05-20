@@ -1,8 +1,18 @@
-import { ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Clock, Briefcase, User, LayoutDashboard, Leaf, Settings, BarChart3, Shield, ChevronDown } from "lucide-react";
-
-type Role = "consultant" | "manager" | "admin";
+import { ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Clock,
+  Briefcase,
+  User,
+  LayoutDashboard,
+  Leaf,
+  Settings,
+  BarChart3,
+  Shield,
+  LogOut,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import type { Role } from "@/lib/database.types";
 
 const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> = {
   consultant: [
@@ -28,9 +38,19 @@ interface AppLayoutProps {
   role?: Role;
 }
 
-const AppLayout = ({ children, role = "consultant" }: AppLayoutProps) => {
+const AppLayout = ({ children, role }: AppLayoutProps) => {
   const location = useLocation();
-  const navItems = roleNavItems[role];
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
+
+  // Utilise le rôle réel depuis le profil, avec fallback sur la prop (pour démo)
+  const activeRole: Role = profile?.role ?? role ?? "consultant";
+  const navItems = roleNavItems[activeRole];
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/", { replace: true });
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -62,20 +82,28 @@ const AppLayout = ({ children, role = "consultant" }: AppLayoutProps) => {
           })}
         </nav>
 
-        {/* Role switcher for demo */}
-        <div className="px-3 py-2 border-t border-sidebar-border">
-          <div className="label-uppercase text-sidebar-foreground/50 px-3 mb-2">Rôle actif</div>
-          <div className="flex flex-col gap-1">
-            <Link to="/consultant" className={`text-xs px-3 py-1.5 rounded ${role === "consultant" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>Consultant</Link>
-            <Link to="/manager" className={`text-xs px-3 py-1.5 rounded ${role === "manager" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>Manager</Link>
-            <Link to="/admin" className={`text-xs px-3 py-1.5 rounded ${role === "admin" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/60 hover:text-sidebar-foreground"}`}>Admin</Link>
-          </div>
-        </div>
-
-        <div className="px-5 py-4 border-t border-sidebar-border">
-          <Link to="/" className="text-sm text-sidebar-foreground/60 hover:text-sidebar-foreground">
+        {/* Profil utilisateur */}
+        <div className="px-4 py-4 border-t border-sidebar-border">
+          {profile && (
+            <div className="mb-3">
+              <div className="text-sm font-medium text-sidebar-foreground truncate">
+                {profile.full_name}
+              </div>
+              <div className="text-xs text-sidebar-foreground/50 truncate">
+                {profile.email}
+              </div>
+              <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded bg-sidebar-accent text-sidebar-accent-foreground capitalize">
+                {profile.role}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 text-sm text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          >
+            <LogOut size={14} />
             Se déconnecter
-          </Link>
+          </button>
         </div>
       </aside>
 
