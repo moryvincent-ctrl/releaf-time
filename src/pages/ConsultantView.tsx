@@ -260,7 +260,7 @@ const ConsultantView = () => {
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={prevWeek}>
             <ChevronLeft size={16} />
           </Button>
-          <h3 className="text-base font-heading font-medium text-primary text-center w-80">
+          <h3 className="text-lg font-heading font-semibold text-primary text-center w-80">
             Semaine du {formatWeekLabel(weekStart)}
           </h3>
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={nextWeek}>
@@ -285,11 +285,21 @@ const ConsultantView = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-1/3">Mission / Catégorie</th>
-              {DAYS_LABELS.map((d) => (
-                <th key={d} className="text-center px-2 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-16">{d}</th>
-              ))}
-              <th className="text-center px-3 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-16">Total</th>
+              <th className="text-left px-4 py-3 text-base font-semibold uppercase tracking-wide text-primary w-1/3">Mission / Catégorie</th>
+              {DAYS_LABELS.map((d, i) => {
+                const date = new Date(weekDays[i] + "T12:00:00");
+                const dayNum = date.getDate();
+                const monthShort = date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
+                return (
+                  <th key={d} className="text-center px-2 py-3 text-base font-semibold uppercase tracking-wide text-primary w-16">
+                    <div>{d}</div>
+                    <div className="text-xs font-normal normal-case tracking-normal text-muted-foreground mt-0.5">
+                      {dayNum} {monthShort}
+                    </div>
+                  </th>
+                );
+              })}
+              <th className="text-center px-3 py-3 text-base font-semibold uppercase tracking-wide text-primary w-16">Total</th>
             </tr>
           </thead>
 
