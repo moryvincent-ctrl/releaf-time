@@ -5,12 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Leaf, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const roleRedirect: Record<string, string> = {
-  consultant: "/consultant",
-  manager: "/manager",
-  admin: "/admin",
-};
-
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,10 +13,10 @@ const LoginPage = () => {
   const { signIn, profile, session } = useAuth();
   const navigate = useNavigate();
 
-  // Redirige si déjà connecté
+  // Tous les rôles arrivent sur "Mes temps" après connexion
   useEffect(() => {
     if (session && profile) {
-      navigate(roleRedirect[profile.role] ?? "/consultant", { replace: true });
+      navigate("/consultant", { replace: true });
     }
   }, [session, profile, navigate]);
 
