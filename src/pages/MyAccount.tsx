@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, Briefcase, TrendingUp, PieChart, Loader2, Save } from "lucide-react";
+import { Clock, Briefcase, TrendingUp, PieChart, Loader2, Save, Camera } from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
@@ -33,6 +33,45 @@ const MyAccount = () => {
 
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [newPassword, setNewPassword] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadAvatar = useMutation({
+    mutationFn: async (file: File) => {
+      if (!file.type.startsWith("image/")) throw new Error("Le fichier doit être une image.");
+      if (file.size > 2 * 1024 * 1024) throw new Error("Image trop lourde (max 2 Mo).");
+
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${user!.id}/avatar-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, cacheControl: "3600" });
+      if (uploadError) throw uploadError;
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", user!.id);
+      if (updateError) throw updateError;
+
+      return publicUrl;
+    },
+    onSuccess: async () => {
+      toast.success("Photo de profil mise à jour");
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    },
+    onError: (err: any) => toast.error(err.message ?? "Erreur lors de l'upload"),
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadAvatar.mutate(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const updateName = useMutation({
     mutationFn: async (name: string) => {
@@ -78,8 +117,38 @@ const MyAccount = () => {
 
       {/* Header profil */}
       <div className="bg-card rounded-lg border border-border p-6 mb-6 flex items-center gap-5">
-        <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-heading font-semibold">
-          {initialsOf(profile.full_name)}
+        <div className="relative group">
+          {profile.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={profile.full_name}
+              className="w-20 h-20 rounded-full object-cover border border-border"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xl font-heading font-semibold">
+              {initialsOf(profile.full_name)}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadAvatar.isPending}
+            className="absolute inset-0 w-20 h-20 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity disabled:opacity-100"
+            title="Changer la photo"
+          >
+            {uploadAvatar.isPending ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Camera size={20} />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </div>
         <div className="flex-1">
           <div className="text-lg font-heading font-semibold text-primary">{profile.full_name}</div>
@@ -87,6 +156,9 @@ const MyAccount = () => {
           <span className="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded bg-accent text-accent-foreground">
             {roleLabels[profile.role] ?? profile.role}
           </span>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Survole l'avatar pour changer ta photo (max 2 Mo).
+          </div>
         </div>
       </div>
 
