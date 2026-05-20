@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Missions from "./pages/Missions";
 import MissionDetail from "./pages/MissionDetail";
 import Settings from "./pages/Settings";
+import MyAccount from "./pages/MyAccount";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <MyAccount />
                 </ProtectedRoute>
               }
             />

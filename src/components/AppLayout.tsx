@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Clock,
-  Briefcase,
   User,
   LayoutDashboard,
   Leaf,
@@ -18,19 +17,17 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   consultant: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
-    { label: "Mes missions", path: "/missions", icon: Briefcase },
-    { label: "Mon compte", path: "#", icon: User },
+    { label: "Mon compte", path: "/account", icon: User },
   ],
   manager: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Tableau de bord", path: "/manager", icon: LayoutDashboard },
-    { label: "Missions", path: "/missions", icon: Briefcase },
-    { label: "Mon compte", path: "#", icon: User },
+    { label: "Mon compte", path: "/account", icon: User },
   ],
   admin: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Vue globale", path: "/admin", icon: Shield },
-    { label: "Missions", path: "/missions", icon: Briefcase },
+    { label: "Mon compte", path: "/account", icon: User },
     { label: "Paramètres", path: "/settings", icon: Settings },
   ],
 };
