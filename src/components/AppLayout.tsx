@@ -26,6 +26,7 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   ],
   admin: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
+    { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
     { label: "Vue globale", path: "/admin", icon: Shield },
     { label: "Mon compte", path: "/account", icon: User },
     { label: "Paramètres", path: "/settings", icon: Settings },

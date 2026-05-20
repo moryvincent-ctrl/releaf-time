@@ -71,17 +71,49 @@ export function useAssignedMissions() {
   return useQuery({
     queryKey: ["assigned_missions", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Missions assignées (via assignments)
+      const { data: assignments, error: e1 } = await supabase
         .from("assignments")
         .select("mission:missions(id, name, client, pole, nature_mission, status)")
         .eq("user_id", user!.id);
+      if (e1) throw e1;
 
-      if (error) throw error;
-      return (data ?? [])
-        .map((a: any) => a.mission)
-        .filter((m: any) => m && m.status === "active");
+      // 2. Missions où l'user a déjà saisi du temps même sans assignment (dépannage ponctuel)
+      const { data: entries, error: e2 } = await supabase
+        .from("time_entries")
+        .select("mission:missions(id, name, client, pole, nature_mission, status)")
+        .eq("user_id", user!.id)
+        .not("mission_id", "is", null);
+      if (e2) throw e2;
+
+      const byId = new Map<string, any>();
+      for (const a of assignments ?? []) {
+        const m: any = a.mission;
+        if (m && m.status === "active") byId.set(m.id, m);
+      }
+      for (const e of entries ?? []) {
+        const m: any = e.mission;
+        if (m && m.status === "active" && !byId.has(m.id)) byId.set(m.id, m);
+      }
+      return Array.from(byId.values());
     },
     enabled: !!user,
+  });
+}
+
+// Toutes les missions actives (pour ajout ponctuel depuis ConsultantView)
+export function useActiveMissions() {
+  return useQuery({
+    queryKey: ["active_missions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("missions")
+        .select("id, name, client, pole, nature_mission, status")
+        .eq("status", "active")
+        .order("client", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 }
 

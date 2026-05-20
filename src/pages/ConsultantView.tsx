@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, MessageSquare, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare, Loader2, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import AppLayout from "@/components/AppLayout";
 import {
   useTimeEntries,
   useAssignedMissions,
+  useActiveMissions,
   useUpsertTimeEntry,
   getWeekStart,
   getWeekDays,
@@ -43,12 +50,47 @@ const ConsultantView = () => {
   const weekDays = getWeekDays(weekStart);
 
   const { data: entries = [], isLoading: loadingEntries } = useTimeEntries(weekStart);
-  const { data: assignedMissions = [], isLoading: loadingMissions } = useAssignedMissions();
+  const { data: baseAssignedMissions = [], isLoading: loadingMissions } = useAssignedMissions();
+  const { data: allActiveMissions = [] } = useActiveMissions();
   const upsert = useUpsertTimeEntry();
 
   const [grid, setGrid] = useState<GridState>({});
   const [showComment, setShowComment] = useState<{ key: string; date: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Missions ajoutées ponctuellement (état local pour la session courante)
+  const [extraMissionIds, setExtraMissionIds] = useState<Set<string>>(new Set());
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Combine missions assignées + missions ponctuelles ajoutées
+  const assignedMissions = useMemo(() => {
+    const byId = new Map<string, any>();
+    for (const m of baseAssignedMissions) byId.set(m.id, m);
+    for (const id of extraMissionIds) {
+      if (!byId.has(id)) {
+        const m = allActiveMissions.find((x: any) => x.id === id);
+        if (m) byId.set(id, m);
+      }
+    }
+    return Array.from(byId.values());
+  }, [baseAssignedMissions, extraMissionIds, allActiveMissions]);
+
+  // Missions disponibles à l'ajout (actives, non encore dans la grille)
+  const availableMissions = useMemo(() => {
+    const usedIds = new Set(assignedMissions.map((m: any) => m.id));
+    const q = search.trim().toLowerCase();
+    return allActiveMissions
+      .filter((m: any) => !usedIds.has(m.id))
+      .filter((m: any) => {
+        if (!q) return true;
+        return (
+          (m.client ?? "").toLowerCase().includes(q) ||
+          (m.name ?? "").toLowerCase().includes(q) ||
+          (m.nature_mission ?? "").toLowerCase().includes(q)
+        );
+      });
+  }, [assignedMissions, allActiveMissions, search]);
 
   // Initialise la grille depuis les entrées Supabase
   useEffect(() => {
@@ -258,6 +300,18 @@ const ConsultantView = () => {
               )
             )}
             <tr>
+              <td colSpan={7} className="px-4 py-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
+                  onClick={() => { setSearch(""); setAddDialogOpen(true); }}
+                >
+                  <Plus size={12} className="mr-1" /> Ajouter une mission ponctuelle
+                </Button>
+              </td>
+            </tr>
+            <tr>
               <td colSpan={7} className="px-4 py-2 label-uppercase text-secondary bg-muted/30">
                 Temps internes
               </td>
@@ -287,6 +341,47 @@ const ConsultantView = () => {
         </table>
       </div>
 
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ajouter une mission ponctuelle</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Sélectionne une mission en cours sur laquelle tu n'es pas staffé pour pouvoir saisir du temps dessus. Elle restera sur ta grille tant qu'elle contient au moins une saisie.
+          </p>
+          <Input
+            autoFocus
+            placeholder="Rechercher par client, projet ou nature…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mt-2"
+          />
+          <div className="max-h-72 overflow-auto border border-border rounded-md divide-y divide-border">
+            {availableMissions.length === 0 ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                Aucune mission disponible.
+              </div>
+            ) : (
+              availableMissions.map((m: any) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setExtraMissionIds((prev) => new Set(prev).add(m.id));
+                    setAddDialogOpen(false);
+                    toast.success(`"${m.client}" ajoutée à la grille`);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="text-sm font-medium text-foreground">{m.client}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {m.name}{m.nature_mission ? ` · ${m.nature_mission}` : ""}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
