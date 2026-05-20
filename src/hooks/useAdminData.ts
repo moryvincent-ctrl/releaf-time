@@ -17,21 +17,41 @@ export function useAdminStats() {
         { data: activeMissions },
         { data: weekEntries },
       ] = await Promise.all([
-        supabase.from("time_entries").select("hours, mission_id, user_id").gte("entry_date", monthStart).lte("entry_date", monthEnd),
+        supabase.from("time_entries").select("hours, mission_id, user_id, internal_category").gte("entry_date", monthStart).lte("entry_date", monthEnd),
         supabase.from("missions").select("id").eq("status", "active"),
-        supabase.from("time_entries").select("hours, user_id, user:profiles(full_name)").gte("entry_date", weekStart).lte("entry_date", weekEnd),
+        supabase.from("time_entries").select("hours, user_id, mission_id, user:profiles(full_name)").gte("entry_date", weekStart).lte("entry_date", weekEnd),
       ]);
 
       const totalHours = (monthEntries ?? []).reduce((sum, e) => sum + Number(e.hours), 0);
       const clientHours = (monthEntries ?? []).filter((e) => e.mission_id).reduce((sum, e) => sum + Number(e.hours), 0);
+      const internalHours = totalHours - clientHours;
       const percentClient = totalHours > 0 ? Math.round((clientHours / totalHours) * 100) : 0;
       const activeUsers = new Set((monthEntries ?? []).map((e) => e.user_id)).size;
 
-      const byUser = new Map<string, { name: string; hours: number }>();
+      // Répartition détaillée : "Client" en bloc + chaque catégorie interne séparée
+      const breakdown = new Map<string, number>();
+      if (clientHours > 0) breakdown.set("Client", clientHours);
+      for (const entry of monthEntries ?? []) {
+        if (entry.mission_id) continue;
+        const cat = (entry.internal_category as string | null) ?? "Non catégorisé";
+        breakdown.set(cat, (breakdown.get(cat) ?? 0) + Number(entry.hours));
+      }
+      const repartition = Array.from(breakdown.entries())
+        .map(([name, hours]) => ({
+          name,
+          hours: Math.round(hours * 10) / 10,
+          percent: totalHours > 0 ? Math.round((hours / totalHours) * 100) : 0,
+          isClient: name === "Client",
+        }))
+        .sort((a, b) => b.hours - a.hours);
+
+      const byUser = new Map<string, { name: string; client: number; internal: number }>();
       for (const entry of weekEntries ?? []) {
         const name = (entry.user as any)?.full_name ?? "Inconnu";
-        const prev = byUser.get(entry.user_id) ?? { name, hours: 0 };
-        byUser.set(entry.user_id, { name, hours: prev.hours + Number(entry.hours) });
+        const prev = byUser.get(entry.user_id) ?? { name, client: 0, internal: 0 };
+        if (entry.mission_id) prev.client += Number(entry.hours);
+        else prev.internal += Number(entry.hours);
+        byUser.set(entry.user_id, prev);
       }
 
       return {
@@ -39,10 +59,22 @@ export function useAdminStats() {
         activeConsultants: activeUsers,
         activeMissions: (activeMissions ?? []).length,
         percentClient,
-        weekByConsultant: Array.from(byUser.values()).map((u) => ({
-          name: u.name.split(" ").map((p, i) => (i === 0 ? p[0] + "." : p)).join(" "),
-          hours: u.hours,
-        })),
+        clientHours: Math.round(clientHours * 10) / 10,
+        internalHours: Math.round(internalHours * 10) / 10,
+        repartition,
+        weekByConsultant: Array.from(byUser.values())
+          .map((u) => {
+            const total = u.client + u.internal;
+            return {
+              name: u.name.split(" ")[0],
+              fullName: u.name,
+              client: Math.round(u.client * 10) / 10,
+              internal: Math.round(u.internal * 10) / 10,
+              total: Math.round(total * 10) / 10,
+              percentClient: total > 0 ? Math.round((u.client / total) * 100) : 0,
+            };
+          })
+          .sort((a, b) => b.total - a.total),
       };
     },
   });
