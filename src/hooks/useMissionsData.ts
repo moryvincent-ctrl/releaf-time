@@ -11,6 +11,10 @@ function initialsOf(name: string): string {
     .join("");
 }
 
+function firstNameInitial(name: string): string {
+  return (name.split(" ")[0]?.[0] ?? "?").toUpperCase();
+}
+
 function formatDate(value: string | null): string {
   if (!value) return "—";
   try {
@@ -102,11 +106,11 @@ export function useMissionDetail(missionId: string | undefined) {
           .single(),
         supabase
           .from("assignments")
-          .select("user_id, role_on_mission, user:profiles(full_name)")
+          .select("user_id, role_on_mission, user:profiles(full_name, avatar_url)")
           .eq("mission_id", missionId),
         supabase
           .from("time_entries")
-          .select("entry_date, hours, comment, user_id, user:profiles(full_name)")
+          .select("entry_date, hours, comment, user_id, user:profiles(full_name, avatar_url)")
           .eq("mission_id", missionId)
           .order("entry_date", { ascending: false }),
       ]);
@@ -130,7 +134,8 @@ export function useMissionDetail(missionId: string | undefined) {
         const userConsumedDays = Math.round((userHours / 8) * 10) / 10;
         return {
           name,
-          initials: initialsOf(name),
+          initial: firstNameInitial(name),
+          avatarUrl: (a.user?.avatar_url as string | null) ?? null,
           hours: Math.round(userHours * 10) / 10,
           budget: Math.round(perConsultantBudget * 10) / 10,
           consumed: userConsumedDays,

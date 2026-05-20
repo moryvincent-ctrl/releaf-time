@@ -244,14 +244,15 @@ const ConsultantView = () => {
 
   return (
     <AppLayout>
+      <h2 className="text-xl font-heading font-semibold text-primary mb-4">Mes temps passés</h2>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={prevWeek}>
             <ChevronLeft size={16} />
           </Button>
-          <h2 className="text-lg font-heading font-semibold text-primary text-center w-80">
+          <h3 className="text-base font-heading font-medium text-primary text-center w-80">
             Semaine du {formatWeekLabel(weekStart)}
-          </h2>
+          </h3>
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={nextWeek}>
             <ChevronRight size={16} />
           </Button>
@@ -274,17 +275,17 @@ const ConsultantView = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 label-uppercase w-1/3">Mission / Catégorie</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-1/3">Mission / Catégorie</th>
               {DAYS_LABELS.map((d) => (
-                <th key={d} className="text-center px-2 py-3 label-uppercase w-16">{d}</th>
+                <th key={d} className="text-center px-2 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-16">{d}</th>
               ))}
-              <th className="text-center px-3 py-3 label-uppercase w-16">Total</th>
+              <th className="text-center px-3 py-3 text-sm font-semibold uppercase tracking-wide text-primary w-16">Total</th>
             </tr>
           </thead>
 
           <tbody>
             <tr>
-              <td colSpan={7} className="px-4 py-2 label-uppercase text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
                 Missions
               </td>
             </tr>
@@ -312,7 +313,7 @@ const ConsultantView = () => {
               </td>
             </tr>
             <tr>
-              <td colSpan={7} className="px-4 py-2 label-uppercase text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
                 Temps internes
               </td>
             </tr>

@@ -68,13 +68,23 @@ const MissionDetail = () => {
           <span className="label-uppercase">Consultants :</span>
           <div className="flex -space-x-2">
             {mission.consultants.map((c, i) => (
-              <div
-                key={i}
-                className="w-7 h-7 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-medium border-2 border-card"
-                title={c.name}
-              >
-                {c.initials}
-              </div>
+              c.avatarUrl ? (
+                <img
+                  key={i}
+                  src={c.avatarUrl}
+                  alt={c.name}
+                  title={c.name}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-card"
+                />
+              ) : (
+                <div
+                  key={i}
+                  className="w-10 h-10 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-semibold border-2 border-card"
+                  title={c.name}
+                >
+                  {c.initial}
+                </div>
+              )
             ))}
           </div>
           <span className="text-xs text-muted-foreground ml-1">
@@ -145,9 +155,17 @@ const MissionDetail = () => {
                     return (
                       <tr key={i} className="border-b border-border last:border-b-0">
                         <td className="px-4 py-3 text-sm font-medium flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-medium">
-                            {c.initials}
-                          </div>
+                          {c.avatarUrl ? (
+                            <img
+                              src={c.avatarUrl}
+                              alt={c.name}
+                              className="w-9 h-9 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-semibold">
+                              {c.initial}
+                            </div>
+                          )}
                           {c.name}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-semibold text-primary">{c.hours}h</td>
