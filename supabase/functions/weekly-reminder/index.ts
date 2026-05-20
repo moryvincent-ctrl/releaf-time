@@ -37,8 +37,8 @@ async function sendEmail(apiKey: string, to: string, fullName: string) {
 <meta charset="utf-8">
 <title>Releaf Time</title>
 </head>
-<body style="margin:0; padding:0; background:${CREAM}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color:${INK};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CREAM}; padding:40px 16px;">
+<body style="margin:0; padding:0; background:${MINT}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color:${INK};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${MINT}; padding:40px 16px;">
     <tr>
       <td align="center">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background:#FFFFFF; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,46,34,0.06);">
@@ -87,7 +87,7 @@ async function sendEmail(apiKey: string, to: string, fullName: string) {
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 32px 28px; border-top:1px solid ${MINT}; background:${CREAM};">
+            <td style="padding:20px 32px 28px; border-top:1px solid ${MINT}; background:#FBF3FF;">
               <p style="margin:0; font-size:11px; line-height:1.5; color:${SAGE};">
                 Tu reçois ce message car aucune sauvegarde n'a été enregistrée sur ton compte Releaf Time depuis la semaine du
                 ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.
