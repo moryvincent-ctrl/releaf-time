@@ -57,12 +57,14 @@ export function useConsultantDashboard() {
 
       if (e2) throw e2;
 
-      const activeMissions = (assignments ?? [])
+      const allAssignedMissions = (assignments ?? [])
         .map((a: any) => a.mission)
-        .filter((m: any) => m && m.status === "active");
+        .filter((m: any) => m);
+      const activeMissions = allAssignedMissions.filter((m: any) => m.status === "active");
+      const completedMissions = allAssignedMissions.filter((m: any) => m.status === "completed");
 
       // ── Total heures par mission (pour calculer le % consommé)
-      const missionIds = activeMissions.map((m: any) => m.id);
+      const missionIds = allAssignedMissions.map((m: any) => m.id);
       let hoursByMission = new Map<string, number>();
       if (missionIds.length > 0) {
         const { data: allEntries, error: e3 } = await supabase
@@ -116,9 +118,9 @@ export function useConsultantDashboard() {
       });
 
       // ── Missions affichées avec % budget consommé
-      const missions = activeMissions.map((m: any) => {
+      const formatMission = (m: any, statusLabel: string) => {
         const totalHours = hoursByMission.get(m.id) ?? 0;
-        const consumedDays = totalHours / 8;
+        const consumedDays = Math.round((totalHours / 8) * 10) / 10;
         const budget = Number(m.budget_days) || 0;
         const percent = budget > 0 ? Math.round((consumedDays / budget) * 100) : 0;
         return {
@@ -126,10 +128,20 @@ export function useConsultantDashboard() {
           client: m.client,
           project: m.name,
           nature: m.nature_mission as string | null,
+          consumed: consumedDays,
+          budgetDays: budget,
           budget: percent,
-          status: percent >= 80 ? "Alerte" : "En cours",
+          status: statusLabel,
         };
-      });
+      };
+
+      const missions = activeMissions.map((m: any) =>
+        formatMission(m, "En cours"),
+      ).map((m) => ({ ...m, status: m.budget >= 80 ? "Alerte" : "En cours" }));
+
+      const missionsCompleted = completedMissions.map((m: any) =>
+        formatMission(m, "Terminé"),
+      );
 
       return {
         hoursThisWeek: Math.round(hoursThisWeek * 10) / 10,
@@ -142,6 +154,7 @@ export function useConsultantDashboard() {
         weeklyBase: WEEKLY_BASE_HOURS,
         recentWeeks,
         missions,
+        missionsCompleted,
       };
     },
     enabled: !!user,

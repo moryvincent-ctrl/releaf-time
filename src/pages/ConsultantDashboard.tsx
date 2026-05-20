@@ -126,6 +126,47 @@ const ConsultantDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Missions terminées */}
+      <div className="bg-card rounded-lg border border-border overflow-hidden mt-6">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="label-uppercase">Missions terminées</h3>
+          <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
+        </div>
+        {data.missionsCompleted.length === 0 ? (
+          <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+            Aucune mission terminée pour le moment.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {data.missionsCompleted.map((m) => (
+              <Link
+                key={m.id}
+                to={`/missions/${m.id}`}
+                className="block px-4 py-3 hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <div className="text-sm font-medium">{m.client}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {m.consumed}j / {m.budgetDays}j ({m.budget}%)
+                    </span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                      Terminé
+                    </span>
+                  </div>
+                </div>
+                <BudgetBar percent={Math.min(m.budget, 100)} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </AppLayout>
   );
 };
