@@ -57,7 +57,7 @@ const LoginPage = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="prenom@releaf.fr"
+                placeholder="prenomnom@releafcarbon.com"
                 className="bg-card border-input focus:ring-ring"
                 required
                 autoComplete="email"
