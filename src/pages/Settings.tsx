@@ -5,6 +5,8 @@ import { RefreshCw, Link2, Loader2, CheckCircle, AlertCircle, Save, ChevronDown,
 import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 import type { Profile } from "@/lib/database.types";
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -18,8 +20,15 @@ function useNotionSettings() {
         .select("*")
         .single();
       if (error) throw error;
-      return data as { api_key: string | null; database_id: string | null; prop_names: Partial<PropNames> | null };
+      return data as {
+        api_key: string | null;
+        database_id: string | null;
+        prop_names: Partial<PropNames> | null;
+        last_synced_at: string | null;
+      };
     },
+    // Refetch toutes les 60s pour rafraîchir "Dernière sync"
+    refetchInterval: 60_000,
   });
 }
 
@@ -136,6 +145,7 @@ const Settings = () => {
       queryClient.invalidateQueries({ queryKey: ["mission_detail"] });
       queryClient.invalidateQueries({ queryKey: ["admin_stats"] });
       queryClient.invalidateQueries({ queryKey: ["admin_entries"] });
+      queryClient.invalidateQueries({ queryKey: ["consultant_dashboard"] });
     } catch (err: any) {
       setSyncResult({ success: false, synced: 0, skipped: 0, total: 0, warnings: [], error: err.message });
     } finally {
@@ -240,6 +250,12 @@ const Settings = () => {
               : <><RefreshCw size={14} className="mr-2" />Synchroniser depuis Notion</>
             }
           </Button>
+
+          {notionSettings?.last_synced_at && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              Dernière sync : {formatDistanceToNow(new Date(notionSettings.last_synced_at), { addSuffix: true, locale: fr })}
+            </span>
+          )}
         </div>
 
         {/* Résultat de la sync */}

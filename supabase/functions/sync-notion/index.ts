@@ -38,7 +38,23 @@ function getNumber(prop: any): number {
 }
 
 function getDate(prop: any): string | null {
-  return prop?.date?.start ?? null;
+  if (!prop) return null;
+  // Date directe : { date: { start: "..." } }
+  if (prop.date?.start) return prop.date.start;
+  // Formule retournant une date : { formula: { date: { start: "..." } } }
+  if (prop.formula?.date?.start) return prop.formula.date.start;
+  // Rollup d'une date : { rollup: { date: { start: "..." } } }
+  if (prop.rollup?.date?.start) return prop.rollup.date.start;
+  // Rollup d'un array (depuis une relation) :
+  //   { rollup: { type: "array", array: [{ date: { start } }] } }
+  //   ou [{ formula: { date: { start } } }]
+  if (prop.rollup?.array?.length) {
+    for (const item of prop.rollup.array) {
+      if (item?.date?.start) return item.date.start;
+      if (item?.formula?.date?.start) return item.formula.date.start;
+    }
+  }
+  return null;
 }
 
 function getPeople(prop: any): NotionPerson[] {
@@ -262,6 +278,12 @@ Deno.serve(async (req: Request) => {
 
       synced++;
     }
+
+    // Met à jour le timestamp de dernière sync (lisible dans Settings)
+    await supabase
+      .from("notion_settings")
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq("id", 1);
 
     return new Response(
       JSON.stringify({
