@@ -22,11 +22,13 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
     { label: "Mon compte", path: "#", icon: User },
   ],
   manager: [
+    { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Tableau de bord", path: "/manager", icon: LayoutDashboard },
     { label: "Missions", path: "/missions", icon: Briefcase },
     { label: "Mon compte", path: "#", icon: User },
   ],
   admin: [
+    { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Vue globale", path: "/admin", icon: Shield },
     { label: "Missions", path: "/missions", icon: Briefcase },
     { label: "Paramètres", path: "/settings", icon: Settings },
@@ -53,8 +55,8 @@ const AppLayout = ({ children, role }: AppLayoutProps) => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-60 bg-primary flex flex-col flex-shrink-0">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="w-60 bg-primary flex flex-col flex-shrink-0 h-screen">
         <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
           <Leaf size={24} className="text-secondary" />
           <span className="font-heading font-semibold text-lg text-sidebar-foreground">

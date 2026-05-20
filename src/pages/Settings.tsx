@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Link2, Loader2, CheckCircle, AlertCircle, Save } from "lucide-react";
+import { RefreshCw, Link2, Loader2, CheckCircle, AlertCircle, Save, ChevronDown, ChevronUp } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +18,7 @@ function useNotionSettings() {
         .select("*")
         .single();
       if (error) throw error;
-      return data as { api_key: string | null; database_id: string | null };
+      return data as { api_key: string | null; database_id: string | null; prop_names: Partial<PropNames> | null };
     },
   });
 }
@@ -36,6 +36,47 @@ function useProfiles() {
     },
   });
 }
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PropNames = {
+  name: string;
+  client: string;
+  pole: string;
+  budget_days: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  manager: string;
+  consultants: string;
+  nature_mission: string;
+};
+
+const DEFAULT_PROP_NAMES: PropNames = {
+  name:           "Nom du projet",
+  client:         "Nom du client",
+  pole:           "Pôle",
+  budget_days:    "Budget jours",
+  start_date:     "émission facture acompte",
+  end_date:       "émission facture finale",
+  status:         "État",
+  manager:        "Manager",
+  consultants:    "Consultants",
+  nature_mission: "Nature_mission",
+};
+
+const PROP_LABELS: Record<keyof PropNames, string> = {
+  name:           "Nom du projet (titre)",
+  client:         "Nom du client",
+  pole:           "Pôle",
+  budget_days:    "Budget (jours)",
+  start_date:     "Date début",
+  end_date:       "Date fin",
+  status:         "Statut",
+  manager:        "Manager",
+  consultants:    "Consultants",
+  nature_mission: "Nature de la mission",
+};
 
 // ─── Composant ────────────────────────────────────────────────────────────────
 
@@ -55,6 +96,8 @@ const Settings = () => {
 
   const [apiKey, setApiKey] = useState("");
   const [dbId, setDbId] = useState("");
+  const [propNames, setPropNames] = useState<PropNames>(DEFAULT_PROP_NAMES);
+  const [showPropNames, setShowPropNames] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -64,6 +107,7 @@ const Settings = () => {
     if (notionSettings) {
       setApiKey(notionSettings.api_key ?? "");
       setDbId(notionSettings.database_id ?? "");
+      setPropNames({ ...DEFAULT_PROP_NAMES, ...(notionSettings.prop_names ?? {}) });
     }
   }, [notionSettings]);
 
@@ -71,7 +115,7 @@ const Settings = () => {
     setSavingConfig(true);
     const { error } = await supabase
       .from("notion_settings")
-      .update({ api_key: apiKey, database_id: dbId })
+      .update({ api_key: apiKey, database_id: dbId, prop_names: propNames })
       .eq("id", 1);
     setSavingConfig(false);
     if (!error) queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
@@ -84,9 +128,14 @@ const Settings = () => {
       const { data, error } = await supabase.functions.invoke("sync-notion");
       if (error) throw error;
       setSyncResult(data as SyncResult);
-      // Rafraîchit les missions dans toute l'appli
+      // Rafraîchit toutes les queries qui dépendent des missions/assignments/saisies
       queryClient.invalidateQueries({ queryKey: ["missions"] });
       queryClient.invalidateQueries({ queryKey: ["assigned_missions"] });
+      queryClient.invalidateQueries({ queryKey: ["all_missions"] });
+      queryClient.invalidateQueries({ queryKey: ["manager_missions"] });
+      queryClient.invalidateQueries({ queryKey: ["mission_detail"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_entries"] });
     } catch (err: any) {
       setSyncResult({ success: false, synced: 0, skipped: 0, total: 0, warnings: [], error: err.message });
     } finally {
@@ -138,6 +187,34 @@ const Settings = () => {
             />
           </div>
         </div>
+
+        {/* Mapping des colonnes Notion */}
+        <button
+          type="button"
+          onClick={() => setShowPropNames((v) => !v)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors"
+        >
+          {showPropNames ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          Noms des colonnes dans Notion
+        </button>
+
+        {showPropNames && (
+          <div className="grid grid-cols-3 gap-3 mb-4 p-4 bg-muted/40 rounded-lg border border-border">
+            <p className="col-span-3 text-xs text-muted-foreground mb-1">
+              Renseigne le nom exact de chaque colonne tel qu'il apparaît dans ta base Notion.
+            </p>
+            {(Object.keys(DEFAULT_PROP_NAMES) as (keyof PropNames)[]).map((key) => (
+              <div key={key}>
+                <label className="label-uppercase block mb-1">{PROP_LABELS[key]}</label>
+                <Input
+                  value={propNames[key]}
+                  onChange={(e) => setPropNames((prev) => ({ ...prev, [key]: e.target.value }))}
+                  className="bg-card border-input text-sm h-8"
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mb-4">
           <Button

@@ -29,7 +29,8 @@ function getRichText(prop: any): string {
 }
 
 function getSelect(prop: any): string {
-  return prop?.select?.name ?? "";
+  // Supporte les types Notion `select` ET `status` (badge natif).
+  return prop?.select?.name ?? prop?.status?.name ?? "";
 }
 
 function getNumber(prop: any): number {
@@ -57,62 +58,73 @@ const POLE_MAP: Record<string, string> = {
   "Water":               "Releaf Water",
   "Releaf Biodiversity": "Releaf Biodiversity",
   "Biodiversity":        "Releaf Biodiversity",
+  "Releaf Campus":       "Releaf Campus",
+  "Campus":              "Releaf Campus",
 };
 
 const STATUS_MAP: Record<string, string> = {
   "En cours":    "active",
   "Active":      "active",
   "Actif":       "active",
+  "SAUR":        "active", // client groupé : plein de petites missions traitées comme actives
   "Terminée":    "completed",
   "Terminé":     "completed",
   "Completed":   "completed",
   "En pause":    "on_hold",
   "On hold":     "on_hold",
+  "En attente":  "on_hold",
+  "Attente":     "on_hold",
+  "Pending":     "on_hold",
 };
 
 function mapPage(page: NotionPage, propNames: PropertyNames) {
   const props = page.properties;
   const pole = POLE_MAP[getSelect(props[propNames.pole])] ?? "Releaf Carbon";
-  const status = STATUS_MAP[getSelect(props[propNames.status])] ?? "active";
+  // Seul "En cours" (et alias) fait apparaître la mission. Tout statut inconnu/vide → on_hold.
+  const status = STATUS_MAP[getSelect(props[propNames.status])] ?? "on_hold";
+  const nature_mission = getSelect(props[propNames.nature_mission]) || getRichText(props[propNames.nature_mission]) || null;
 
   return {
-    notion_id:   page.id,
-    name:        getTitle(props[propNames.name]),
-    client:      getRichText(props[propNames.client]) || getTitle(props[propNames.client]),
+    notion_id:      page.id,
+    name:           getTitle(props[propNames.name]),
+    client:         getRichText(props[propNames.client]) || getTitle(props[propNames.client]),
     pole,
-    budget_days: getNumber(props[propNames.budget_days]),
-    start_date:  getDate(props[propNames.start_date]),
-    end_date:    getDate(props[propNames.end_date]),
+    nature_mission,
+    budget_days:    getNumber(props[propNames.budget_days]),
+    start_date:     getDate(props[propNames.start_date]),
+    end_date:       getDate(props[propNames.end_date]),
     status,
-    manager_people:     getPeople(props[propNames.manager]),
-    consultant_people:  getPeople(props[propNames.consultants]),
+    manager_people:    getPeople(props[propNames.manager]),
+    consultant_people: getPeople(props[propNames.consultants]),
   };
 }
 
 // ─── Noms de propriétés configurables ────────────────────────────────────────
 
 interface PropertyNames {
-  name:         string;
-  client:       string;
-  pole:         string;
-  budget_days:  string;
-  start_date:   string;
-  end_date:     string;
-  status:       string;
-  manager:      string;
-  consultants:  string;
+  name:           string;
+  client:         string;
+  pole:           string;
+  budget_days:    string;
+  start_date:     string;
+  end_date:       string;
+  status:         string;
+  manager:        string;
+  consultants:    string;
+  nature_mission: string;
 }
 
 const DEFAULT_PROP_NAMES: PropertyNames = {
-  name:        "Name",
-  client:      "Client",
-  pole:        "Pôle",
-  budget_days: "Budget (jours)",
-  start_date:  "Date début",
-  end_date:    "Date fin",
-  status:      "Statut",
-  manager:     "Manager",
-  consultants: "Consultants",
+  name:           "Nom du projet",
+  client:         "Nom du client",
+  pole:           "Pôle",
+  budget_days:    "Budget jours",
+  start_date:     "émission facture acompte",
+  end_date:       "émission facture finale",
+  status:         "État",
+  manager:        "Manager",
+  consultants:    "Consultants",
+  nature_mission: "Nature_mission",
 };
 
 // ─── Handler principal ────────────────────────────────────────────────────────
@@ -136,8 +148,8 @@ Deno.serve(async (req: Request) => {
 
     if (settingsError || !settings?.api_key || !settings?.database_id) {
       return new Response(
-        JSON.stringify({ error: "Notion non configuré. Renseigne la clé API et le Database ID dans Paramètres." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `Notion non configuré: ${JSON.stringify(settingsError)} — api_key=${!!settings?.api_key} db_id=${!!settings?.database_id}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -166,8 +178,8 @@ Deno.serve(async (req: Request) => {
       if (!res.ok) {
         const err = await res.text();
         return new Response(
-          JSON.stringify({ error: `Erreur Notion API: ${err}` }),
-          { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: `Erreur Notion API (${res.status}): ${err}`, api_key_preview: notionApiKey.slice(0, 10) + "..." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -195,14 +207,15 @@ Deno.serve(async (req: Request) => {
         .from("missions")
         .upsert(
           {
-            notion_id:   mapped.notion_id,
-            name:        mapped.name,
-            client:      mapped.client || "—",
-            pole:        mapped.pole,
-            budget_days: mapped.budget_days,
-            start_date:  mapped.start_date,
-            end_date:    mapped.end_date,
-            status:      mapped.status,
+            notion_id:      mapped.notion_id,
+            name:           mapped.name,
+            client:         mapped.client || "—",
+            pole:           mapped.pole,
+            nature_mission: mapped.nature_mission,
+            budget_days:    mapped.budget_days,
+            start_date:     mapped.start_date,
+            end_date:       mapped.end_date,
+            status:         mapped.status,
           },
           { onConflict: "notion_id" }
         )
@@ -263,8 +276,8 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: err.message, stack: err.stack }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
