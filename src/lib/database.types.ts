@@ -5,15 +5,16 @@ export type MissionPole =
   | "Releaf LCA"
   | "Releaf Energy"
   | "Releaf Water"
-  | "Releaf Biodiversity";
+  | "Releaf Biodiversity"
+  | "Releaf Campus";
 export type RoleOnMission = "Consultant" | "Chef de projet" | "Manager";
 export type InternalCategory =
   | "Sales / Biz Dev"
   | "Administratif"
-  | "R&D"
-  | "Structuration interne"
+  | "Outils internes"
   | "Formation"
-  | "Communication";
+  | "Communication"
+  | "Recrutement";
 
 export interface Profile {
   id: string;
@@ -28,6 +29,7 @@ export interface Mission {
   name: string;
   client: string;
   pole: MissionPole;
+  nature_mission: string | null;
   budget_days: number;
   start_date: string | null;
   end_date: string | null;

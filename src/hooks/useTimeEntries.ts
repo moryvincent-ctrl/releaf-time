@@ -73,7 +73,7 @@ export function useAssignedMissions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assignments")
-        .select("mission:missions(id, name, client, pole, status)")
+        .select("mission:missions(id, name, client, pole, nature_mission, status)")
         .eq("user_id", user!.id);
 
       if (error) throw error;

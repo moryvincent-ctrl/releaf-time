@@ -23,21 +23,14 @@ import { toast } from "sonner";
 const INTERNAL_CATEGORIES: InternalCategory[] = [
   "Sales / Biz Dev",
   "Administratif",
-  "R&D",
-  "Structuration interne",
+  "Outils internes",
   "Formation",
   "Communication",
+  "Recrutement",
 ];
 
 const DAYS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 
-const POLE_COLORS: Record<string, string> = {
-  "Releaf Carbon":       "bg-primary/10 text-primary",
-  "Releaf LCA":          "bg-secondary/10 text-secondary",
-  "Releaf Energy":       "bg-[hsl(38,80%,50%)]/10 text-[hsl(38,80%,40%)]",
-  "Releaf Water":        "bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,35%)]",
-  "Releaf Biodiversity": "bg-accent text-accent-foreground",
-};
 
 type GridCell = { hours: number; comment: string };
 type GridState = Record<string, Record<string, GridCell>>;
@@ -139,18 +132,16 @@ const ConsultantView = () => {
     }
   };
 
-  const renderRow = (key: string, label: string, sublabel?: string, pole?: string) => (
+  const renderRow = (key: string, name: string, client?: string, nature?: string, pole?: string) => (
     <tr key={key} className="border-b border-border last:border-b-0">
       <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm text-foreground">{label}</span>
-          {pole && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${POLE_COLORS[pole] ?? "bg-muted text-muted-foreground"}`}>
-              {pole}
-            </span>
-          )}
+        <div className="font-semibold text-sm text-foreground">{name}</div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {client && <span className="text-xs text-muted-foreground">{client}</span>}
+          {nature && client && <span className="text-xs text-muted-foreground">·</span>}
+          {nature && <span className="text-xs font-medium text-secondary">{nature}</span>}
+          {pole && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{pole}</span>}
         </div>
-        {sublabel && <div className="text-xs text-muted-foreground">{sublabel}</div>}
       </td>
 
       {weekDays.map((date) => {
@@ -257,7 +248,7 @@ const ConsultantView = () => {
               </tr>
             ) : (
               assignedMissions.map((m: any) =>
-                renderRow(buildKey(m.id, null), m.client, m.name, m.pole)
+                renderRow(buildKey(m.id, null), m.name, m.client, m.nature_mission, m.pole)
               )
             )}
             <tr>
