@@ -58,12 +58,20 @@ export function useAllMissions() {
           return { name, initials: initialsOf(name) };
         });
 
+        const managerNames = missionAssignments
+          .filter((a: any) => a.role_on_mission === "Manager")
+          .map((a: any) => a.user?.full_name)
+          .filter(Boolean) as string[];
+        const managerLabel = managerNames.length > 0
+          ? managerNames.join(", ")
+          : (mission.manager as any)?.full_name ?? "—";
+
         return {
           id: mission.id,
           client: mission.client,
           project: mission.name,
           pole: mission.pole,
-          manager: (mission.manager as any)?.full_name ?? "—",
+          manager: managerLabel,
           startDate: formatDate(mission.start_date),
           endDate: formatDate(mission.end_date),
           budgetTotal: budgetDays,
@@ -137,12 +145,22 @@ export function useMissionDetail(missionId: string | undefined) {
         comment: e.comment ?? "",
       }));
 
+      // Le champ manager_id n'est pas renseigné par la sync Notion : on déduit le manager
+      // depuis l'assignment avec role_on_mission = "Manager" (peut être plusieurs).
+      const managerNames = (assignments ?? [])
+        .filter((a: any) => a.role_on_mission === "Manager")
+        .map((a: any) => a.user?.full_name)
+        .filter(Boolean) as string[];
+      const managerLabel = managerNames.length > 0
+        ? managerNames.join(", ")
+        : (mission.manager as any)?.full_name ?? "—";
+
       return {
         id: mission.id,
         client: mission.client,
         project: mission.name,
         pole: mission.pole,
-        manager: (mission.manager as any)?.full_name ?? "—",
+        manager: managerLabel,
         startDate: formatDate(mission.start_date),
         endDate: formatDate(mission.end_date),
         status: mission.status,
