@@ -22,27 +22,86 @@ function previousMonday(now: Date): Date {
 
 async function sendEmail(apiKey: string, to: string, fullName: string) {
   const firstName = fullName.split(" ")[0] ?? "";
-  const subject = "⏳ N'oublie pas de remplir ton Releaf Time !";
-  const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; color: #1c1c1c;">
-      <h1 style="font-size: 20px; color: #1B4332; margin: 0 0 16px;">Salut ${firstName} 👋</h1>
-      <p style="font-size: 14px; line-height: 1.5;">
-        Tu n'as pas encore validé ta feuille de temps de la semaine dernière sur Releaf Time.
-      </p>
-      <p style="font-size: 14px; line-height: 1.5;">
-        Prends 2 minutes pour la remplir : clique sur le lien ci-dessous puis sur le bouton <strong>Sauvegarder</strong> en haut à droite.
-      </p>
-      <p style="margin: 24px 0;">
-        <a href="${APP_URL}/consultant"
-           style="background: #52B788; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-          Remplir ma feuille de temps
-        </a>
-      </p>
-      <p style="font-size: 12px; color: #666; margin-top: 32px;">
-        Tu reçois ce message car ta dernière sauvegarde Releaf Time date d'avant la semaine écoulée.
-      </p>
-    </div>
-  `;
+  const subject = "⏳ Pense à valider ta feuille de temps";
+
+  // Palette Releaf
+  const INK = "#002E22";
+  const ACCENT = "#007F5F";
+  const SAGE = "#689B87";
+  const CREAM = "#FFFFEB";
+  const MINT = "#F0D7FF";
+
+  const html = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Releaf Time</title>
+</head>
+<body style="margin:0; padding:0; background:${CREAM}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color:${INK};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CREAM}; padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background:#FFFFFF; border-radius:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,46,34,0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="background:${INK}; padding:24px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-size:22px; font-weight:600; color:${CREAM}; letter-spacing:-0.2px;">
+                    ⏳ Releaf <span style="font-weight:400;">Time</span>
+                  </td>
+                  <td align="right" style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:${MINT};">
+                    Rappel hebdomadaire
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Corps -->
+          <tr>
+            <td style="padding:36px 32px 8px;">
+              <h1 style="margin:0 0 16px; font-size:22px; font-weight:600; color:${INK}; line-height:1.3;">
+                Salut ${firstName} 👋
+              </h1>
+              <p style="margin:0 0 12px; font-size:15px; line-height:1.55; color:${INK};">
+                Petit rappel : tu n'as pas validé ta feuille de temps de la semaine dernière sur Releaf Time.
+              </p>
+              <p style="margin:0 0 24px; font-size:15px; line-height:1.55; color:${INK};">
+                Prends 2 minutes pour la remplir, puis clique sur <strong style="color:${ACCENT};">Sauvegarder</strong> en haut à droite.
+              </p>
+              <!-- CTA -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
+                <tr>
+                  <td style="background:${ACCENT}; border-radius:10px;">
+                    <a href="${APP_URL}/consultant"
+                       style="display:inline-block; padding:14px 28px; font-size:15px; font-weight:600; color:${CREAM}; text-decoration:none; letter-spacing:0.2px;">
+                      Remplir ma feuille de temps →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px; font-size:13px; line-height:1.5; color:${SAGE};">
+                Saisir tes temps régulièrement permet à toute l'équipe de suivre les budgets missions et de mieux planifier la suite.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px 28px; border-top:1px solid ${MINT}; background:${CREAM};">
+              <p style="margin:0; font-size:11px; line-height:1.5; color:${SAGE};">
+                Tu reçois ce message car aucune sauvegarde n'a été enregistrée sur ton compte Releaf Time depuis la semaine du
+                ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.
+                <br>
+                Releaf Carbon · <a href="${APP_URL}" style="color:${ACCENT}; text-decoration:none;">${APP_URL.replace(/^https?:\/\//, "")}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
