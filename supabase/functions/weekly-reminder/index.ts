@@ -64,6 +64,8 @@ async function sendEmail(apiKey: string, to: string, fullName: string) {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -78,37 +80,58 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Mode test : si ?test_to=foo@bar.com, tous les envois sont redirigés vers cette adresse
+    const url = new URL(req.url);
+    const testTo = url.searchParams.get("test_to");
+    // Mode dry-run : ?dry=1 → ne fait pas l'envoi, retourne juste la liste
+    const dry = url.searchParams.get("dry") === "1";
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Récupère tous les profils
     const { data: profiles, error } = await supabase
       .from("profiles")
       .select("id, full_name, email, last_save_at");
     if (error) throw error;
 
-    const threshold = previousMonday(new Date()); // lundi 00:00 UTC de la semaine écoulée
+    const threshold = previousMonday(new Date());
     const toRemind = (profiles ?? []).filter((p: any) => {
       if (!p.email) return false;
-      if (!p.last_save_at) return true; // jamais sauvegardé
+      if (!p.last_save_at) return true;
       return new Date(p.last_save_at) < threshold;
     });
 
+    if (dry) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          dry_run: true,
+          threshold: threshold.toISOString(),
+          would_remind: toRemind.map((p: any) => ({ email: p.email, full_name: p.full_name, last_save_at: p.last_save_at })),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const results: { email: string; ok: boolean; error?: string }[] = [];
     for (const p of toRemind) {
+      const recipient = testTo ?? p.email;
       try {
-        await sendEmail(resendKey, p.email, p.full_name ?? "");
-        results.push({ email: p.email, ok: true });
+        await sendEmail(resendKey, recipient, p.full_name ?? "");
+        results.push({ email: recipient, ok: true });
       } catch (e: any) {
-        results.push({ email: p.email, ok: false, error: e.message });
+        results.push({ email: recipient, ok: false, error: e.message });
       }
+      // Resend : 5 req/s max → on espace les envois (250ms entre chaque)
+      await sleep(250);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
+        test_mode: testTo ? `Tous les envois redirigés vers ${testTo}` : null,
         threshold: threshold.toISOString(),
         total_profiles: profiles?.length ?? 0,
         reminded: results.filter((r) => r.ok).length,
