@@ -21,7 +21,6 @@ function useNotionSettings() {
         .single();
       if (error) throw error;
       return data as {
-        api_key: string | null;
         database_id: string | null;
         prop_names: Partial<PropNames> | null;
         last_synced_at: string | null;
@@ -103,7 +102,6 @@ const Settings = () => {
   const { data: notionSettings, isLoading: loadingSettings } = useNotionSettings();
   const { data: profiles = [], isLoading: loadingProfiles } = useProfiles();
 
-  const [apiKey, setApiKey] = useState("");
   const [dbId, setDbId] = useState("");
   const [propNames, setPropNames] = useState<PropNames>(DEFAULT_PROP_NAMES);
   const [showPropNames, setShowPropNames] = useState(false);
@@ -114,7 +112,6 @@ const Settings = () => {
   // Pré-remplit les champs depuis la BDD
   useEffect(() => {
     if (notionSettings) {
-      setApiKey(notionSettings.api_key ?? "");
       setDbId(notionSettings.database_id ?? "");
       setPropNames({ ...DEFAULT_PROP_NAMES, ...(notionSettings.prop_names ?? {}) });
     }
@@ -124,7 +121,7 @@ const Settings = () => {
     setSavingConfig(true);
     const { error } = await supabase
       .from("notion_settings")
-      .update({ api_key: apiKey, database_id: dbId, prop_names: propNames })
+      .update({ database_id: dbId, prop_names: propNames })
       .eq("id", 1);
     setSavingConfig(false);
     if (!error) queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
@@ -176,26 +173,17 @@ const Settings = () => {
           managers et consultants affectés depuis ta base Notion.
         </p>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="label-uppercase block mb-1.5">Clé API Notion</label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="secret_..."
-              className="bg-card border-input"
-            />
-          </div>
-          <div>
-            <label className="label-uppercase block mb-1.5">Database ID</label>
-            <Input
-              value={dbId}
-              onChange={(e) => setDbId(e.target.value)}
-              placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              className="bg-card border-input"
-            />
-          </div>
+        <div className="mb-4">
+          <label className="label-uppercase block mb-1.5">Database ID</label>
+          <Input
+            value={dbId}
+            onChange={(e) => setDbId(e.target.value)}
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="bg-card border-input max-w-md"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            La clé API Notion est désormais stockée côté serveur (Edge Function secret <code className="font-mono">NOTION_API_KEY</code>). Elle nest plus modifiable depuis cette page.
+          </p>
         </div>
 
         {/* Mapping des colonnes Notion */}

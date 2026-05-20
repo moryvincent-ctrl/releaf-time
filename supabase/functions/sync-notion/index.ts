@@ -156,21 +156,30 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Récupère la config Notion depuis la table settings
-    const { data: settings, error: settingsError } = await supabase
-      .from("notion_settings")
-      .select("*")
-      .single();
-
-    if (settingsError || !settings?.api_key || !settings?.database_id) {
+    // La clé API Notion est désormais stockée comme secret d'Edge Function
+    // (Dashboard Supabase > Edge Functions > Manage secrets, ou via `supabase secrets set`).
+    const notionApiKey = Deno.env.get("NOTION_API_KEY");
+    if (!notionApiKey) {
       return new Response(
-        JSON.stringify({ error: `Notion non configuré: ${JSON.stringify(settingsError)} — api_key=${!!settings?.api_key} db_id=${!!settings?.database_id}` }),
+        JSON.stringify({ error: "NOTION_API_KEY non configurée côté Edge Function (supabase secrets set NOTION_API_KEY=...)" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const notionApiKey  = settings.api_key as string;
-    const databaseId    = settings.database_id as string;
+    // database_id et prop_names restent dans la table (non sensibles)
+    const { data: settings, error: settingsError } = await supabase
+      .from("notion_settings")
+      .select("database_id, prop_names")
+      .single();
+
+    if (settingsError || !settings?.database_id) {
+      return new Response(
+        JSON.stringify({ error: `database_id manquant dans notion_settings: ${JSON.stringify(settingsError)}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const databaseId = settings.database_id as string;
     const propNames: PropertyNames = { ...DEFAULT_PROP_NAMES, ...(settings.prop_names ?? {}) };
 
     // ── 1. Lire toutes les pages de la DB Notion ──────────────────────────────
