@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Plus, MessageSquare, Loader2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, MessageSquare, Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import {
   useTimeEntries,
@@ -27,9 +21,13 @@ const INTERNAL_CATEGORIES: InternalCategory[] = [
   "Formation",
   "Communication",
   "Recrutement",
+  "Développement SaaS Releaf",
+  "Développement site web",
 ];
 
 const DAYS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
+const MAX_HOURS_PER_DAY = 7;
+const MAX_HOURS_PER_WEEK = 35;
 
 
 type GridCell = { hours: number; comment: string };
@@ -51,7 +49,6 @@ const ConsultantView = () => {
   const [grid, setGrid] = useState<GridState>({});
   const [showComment, setShowComment] = useState<{ key: string; date: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   // Initialise la grille depuis les entrées Supabase
   useEffect(() => {
@@ -153,10 +150,19 @@ const ConsultantView = () => {
               <Input
                 type="number"
                 min={0}
-                max={24}
+                max={MAX_HOURS_PER_DAY}
                 step={0.5}
                 value={cell.hours || ""}
-                onChange={(e) => setCell(key, date, { hours: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const raw = parseFloat(e.target.value) || 0;
+                  const othersOnDay = colTotal(date) - cell.hours;
+                  const allowed = Math.max(0, MAX_HOURS_PER_DAY - othersOnDay);
+                  const clamped = Math.min(Math.max(raw, 0), allowed);
+                  if (raw > allowed && allowed > 0) {
+                    toast.warning(`Plafond ${MAX_HOURS_PER_DAY}h/jour : il reste ${allowed}h sur cette journée`);
+                  }
+                  setCell(key, date, { hours: clamped });
+                }}
                 className="w-14 h-8 text-center mx-auto bg-card border-input text-sm rounded-md"
               />
               <button
@@ -201,7 +207,7 @@ const ConsultantView = () => {
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={prevWeek}>
             <ChevronLeft size={16} />
           </Button>
-          <h2 className="text-lg font-heading font-semibold text-primary">
+          <h2 className="text-lg font-heading font-semibold text-primary text-center w-80">
             Semaine du {formatWeekLabel(weekStart)}
           </h2>
           <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={nextWeek}>
@@ -210,8 +216,8 @@ const ConsultantView = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="bg-accent text-accent-foreground text-sm font-medium px-4 py-2 rounded-lg">
-            Total : {grandTotal}h
+          <span className={`text-sm font-medium px-4 py-2 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
+            Total : {grandTotal}h / {MAX_HOURS_PER_WEEK}h
           </span>
           <Button className="rounded-lg" onClick={handleSave} disabled={saving}>
             {saving
@@ -252,19 +258,6 @@ const ConsultantView = () => {
               )
             )}
             <tr>
-              <td colSpan={7} className="px-4 py-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
-                  onClick={() => setAddDialogOpen(true)}
-                >
-                  <Plus size={12} className="mr-1" /> Ajouter une mission
-                </Button>
-              </td>
-            </tr>
-
-            <tr>
               <td colSpan={7} className="px-4 py-2 label-uppercase text-secondary bg-muted/30">
                 Temps internes
               </td>
@@ -277,31 +270,23 @@ const ConsultantView = () => {
           <tfoot>
             <tr className="bg-muted/50">
               <td className="px-4 py-3 font-semibold text-sm text-primary">Total quotidien</td>
-              {weekDays.map((date) => (
-                <td key={date} className="text-center px-2 py-3 font-semibold text-sm text-primary">
-                  {colTotal(date)}h
-                </td>
-              ))}
-              <td className="text-center px-3 py-3 font-bold text-sm text-secondary">
-                {grandTotal}h
+              {weekDays.map((date) => {
+                const total = colTotal(date);
+                const isFull = total >= MAX_HOURS_PER_DAY;
+                return (
+                  <td key={date} className={`text-center px-2 py-3 font-semibold text-sm ${isFull ? "text-secondary" : "text-primary"}`}>
+                    {total}h / {MAX_HOURS_PER_DAY}h
+                  </td>
+                );
+              })}
+              <td className={`text-center px-3 py-3 font-bold text-sm ${grandTotal >= MAX_HOURS_PER_WEEK ? "text-secondary" : "text-primary"}`}>
+                {grandTotal}h / {MAX_HOURS_PER_WEEK}h
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ajouter une mission</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Les missions disponibles sont celles qui te sont affectées par ton manager.
-            Contacte-le pour être ajouté à une mission.
-          </p>
-          <Button onClick={() => setAddDialogOpen(false)} className="mt-2 w-full">Fermer</Button>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   );
 };

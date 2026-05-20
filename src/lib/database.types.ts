@@ -14,7 +14,9 @@ export type InternalCategory =
   | "Outils internes"
   | "Formation"
   | "Communication"
-  | "Recrutement";
+  | "Recrutement"
+  | "Développement SaaS Releaf"
+  | "Développement site web";
 
 export interface Profile {
   id: string;

@@ -51,7 +51,7 @@ create table public.time_entries (
   id                uuid primary key default gen_random_uuid(),
   user_id           uuid not null references public.profiles(id) on delete cascade,
   mission_id        uuid references public.missions(id) on delete set null,
-  internal_category text check (internal_category in ('Sales / Biz Dev','Administratif','R&D','Structuration interne','Formation','Communication')),
+  internal_category text check (internal_category in ('Sales / Biz Dev','Administratif','Outils internes','Formation','Communication','Recrutement','Développement SaaS Releaf','Développement site web')),
   entry_date        date not null,
   hours             numeric(4,2) not null check (hours >= 0 and hours <= 24),
   comment           text,
@@ -79,8 +79,7 @@ returns text language sql security definer stable as $$
   select role from public.profiles where id = auth.uid();
 $$;
 
-create policy "Lecture profil personnel" on public.profiles for select using (id = auth.uid());
-create policy "Admin voit tous les profils" on public.profiles for select using (public.current_user_role() = 'admin');
+create policy "Lecture profils par users authentifiés" on public.profiles for select using (auth.uid() is not null);
 create policy "Mise à jour profil personnel" on public.profiles for update using (id = auth.uid());
 
 create policy "Tout le monde voit les missions" on public.missions for select using (auth.uid() is not null);
