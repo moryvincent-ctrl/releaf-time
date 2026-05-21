@@ -120,7 +120,7 @@ export function useConsultantDashboard() {
       // ── Missions affichées avec % budget consommé
       const formatMission = (m: any, statusLabel: string) => {
         const totalHours = hoursByMission.get(m.id) ?? 0;
-        const consumedDays = Math.round((totalHours / 8) * 10) / 10;
+        const consumedDays = Math.round((totalHours / 7) * 10) / 10;
         const budget = Number(m.budget_days) || 0;
         const percent = budget > 0 ? Math.round((consumedDays / budget) * 100) : 0;
         return {

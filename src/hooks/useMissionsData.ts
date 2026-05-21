@@ -53,7 +53,7 @@ export function useAllMissions() {
         const missionAssignments = (assignments ?? []).filter((a: any) => a.mission_id === mission.id);
 
         const totalHours = missionEntries.reduce((sum: number, e: any) => sum + Number(e.hours), 0);
-        const consumedDays = Math.round((totalHours / 8) * 10) / 10;
+        const consumedDays = Math.round((totalHours / 7) * 10) / 10;
         const budgetDays = Number(mission.budget_days);
         const percent = budgetDays > 0 ? Math.round((consumedDays / budgetDays) * 100) : 0;
 
@@ -122,7 +122,7 @@ export function useMissionDetail(missionId: string | undefined) {
 
       const totalHours = (entries ?? []).reduce((sum: number, e: any) => sum + Number(e.hours), 0);
       const budgetTotal = Number(mission.budget_days);
-      const consumed = Math.round((totalHours / 8) * 10) / 10;
+      const consumed = Math.round((totalHours / 7) * 10) / 10;
 
       const consultantCount = (assignments ?? []).length || 1;
       const perConsultantBudget = budgetTotal / consultantCount;
@@ -131,7 +131,7 @@ export function useMissionDetail(missionId: string | undefined) {
         const name = a.user?.full_name ?? "Inconnu";
         const userEntries = (entries ?? []).filter((e: any) => e.user_id === a.user_id);
         const userHours = userEntries.reduce((sum: number, e: any) => sum + Number(e.hours), 0);
-        const userConsumedDays = Math.round((userHours / 8) * 10) / 10;
+        const userConsumedDays = Math.round((userHours / 7) * 10) / 10;
         return {
           name,
           initial: firstNameInitial(name),

@@ -125,7 +125,7 @@ export function useManagerDashboard() {
       // ── Missions formatées avec budget consommé
       const formatMission = (m: any) => {
         const totalHours = hoursByMission.get(m.id) ?? 0;
-        const consumedDays = Math.round((totalHours / 8) * 10) / 10;
+        const consumedDays = Math.round((totalHours / 7) * 10) / 10;
         const budgetDays = Number(m.budget_days) || 0;
         const percent = budgetDays > 0 ? Math.round((consumedDays / budgetDays) * 100) : 0;
         return {
