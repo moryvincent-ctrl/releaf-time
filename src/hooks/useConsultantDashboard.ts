@@ -21,6 +21,7 @@ import { type Period, type PeriodValue, defaultPeriodValue } from "@/components/
 const WEEK_OPTS = { weekStartsOn: 1 as const };
 const RECENT_BUCKETS_COUNT = 4;
 const WEEKLY_BASE_HOURS = 35;
+const ANNUAL_VACATION_HOURS = 5 * WEEKLY_BASE_HOURS; // 5 semaines de CP = 175h
 
 function bucketStart(period: Period, ref: Date): Date {
   if (period === "week") return startOfWeek(ref, WEEK_OPTS);
@@ -58,9 +59,10 @@ function formatBucketLabel(period: Period, start: Date): string {
 function referenceHours(period: Period, start: string, end: string): number {
   // Base de référence proportionnelle à la longueur de la période
   const days = differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
-  // 35h / 7 jours = 5h/jour calendaire en moyenne. Pour ne compter que les jours ouvrés (5/7) :
-  // ratio = 35/7 * 5 = 25h/sem si on ne comptait que les ouvrés → on prend la moyenne simple 35h/semaine
-  return Math.round((days / 7) * WEEKLY_BASE_HOURS);
+  const base = Math.round((days / 7) * WEEKLY_BASE_HOURS);
+  // En mode année on retire 5 semaines de congés (35h × 5 = 175h)
+  if (period === "year") return Math.max(base - ANNUAL_VACATION_HOURS, 0);
+  return base;
 }
 
 export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("week")) {

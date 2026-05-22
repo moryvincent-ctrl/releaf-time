@@ -21,6 +21,7 @@ import { type Period, type PeriodValue, defaultPeriodValue } from "@/components/
 const WEEK_OPTS = { weekStartsOn: 1 as const };
 const RECENT_BUCKETS_COUNT = 4;
 const WEEKLY_BASE_HOURS = 35;
+const ANNUAL_VACATION_HOURS = 5 * WEEKLY_BASE_HOURS; // 5 semaines de CP = 175h
 const ALERT_THRESHOLD = 80;
 
 function bucketStart(period: Period, ref: Date): Date {
@@ -48,9 +49,11 @@ function formatBucketLabel(period: Period, start: Date): string {
   return format(start, "yyyy");
 }
 
-function referenceHours(start: string, end: string): number {
+function referenceHours(period: Period, start: string, end: string): number {
   const days = differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
-  return Math.round((days / 7) * WEEKLY_BASE_HOURS);
+  const base = Math.round((days / 7) * WEEKLY_BASE_HOURS);
+  if (period === "year") return Math.max(base - ANNUAL_VACATION_HOURS, 0);
+  return base;
 }
 
 function alertLevel(percent: number): "warning" | "critical" | "exceeded" | null {
@@ -138,7 +141,7 @@ export function useManagerDashboard(value: PeriodValue = defaultPeriodValue("wee
         .filter((e: any) => e.mission_id)
         .reduce((s: number, e: any) => s + Number(e.hours), 0);
       const internalHoursThisPeriod = hoursThisPeriod - clientHoursThisPeriod;
-      const refHours = referenceHours(start, end);
+      const refHours = referenceHours(period, start, end);
       const charge = refHours > 0 ? Math.round((hoursThisPeriod / refHours) * 100) : 0;
       const chargeClient = refHours > 0 ? Math.round((clientHoursThisPeriod / refHours) * 100) : 0;
       const chargeInternal = refHours > 0 ? Math.round((internalHoursThisPeriod / refHours) * 100) : 0;
