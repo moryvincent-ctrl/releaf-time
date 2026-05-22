@@ -254,6 +254,18 @@ Deno.serve(async (req: Request) => {
 
       const missionId = mission.id;
 
+      // Mémorise la répartition budget par consultant avant de supprimer
+      // (sera restaurée après pour ne pas écraser une saisie manuelle)
+      const { data: prevAssignments } = await supabase
+        .from("assignments")
+        .select("user_id, budget_days_allocated")
+        .eq("mission_id", missionId);
+      const prevBudgetByUser = new Map<string, number>(
+        (prevAssignments ?? [])
+          .filter((a: any) => a.budget_days_allocated != null)
+          .map((a: any) => [a.user_id, Number(a.budget_days_allocated)]),
+      );
+
       // Supprime les anciennes affectations pour recréer depuis Notion
       await supabase.from("assignments").delete().eq("mission_id", missionId);
 
@@ -263,7 +275,12 @@ Deno.serve(async (req: Request) => {
         const userId = email ? profileByEmail.get(email) : null;
         if (userId) {
           await supabase.from("assignments").upsert(
-            { mission_id: missionId, user_id: userId, role_on_mission: "Manager" },
+            {
+              mission_id: missionId,
+              user_id: userId,
+              role_on_mission: "Manager",
+              budget_days_allocated: prevBudgetByUser.get(userId) ?? null,
+            },
             { onConflict: "mission_id,user_id" }
           );
         } else {
@@ -277,7 +294,12 @@ Deno.serve(async (req: Request) => {
         const userId = email ? profileByEmail.get(email) : null;
         if (userId) {
           await supabase.from("assignments").upsert(
-            { mission_id: missionId, user_id: userId, role_on_mission: "Consultant" },
+            {
+              mission_id: missionId,
+              user_id: userId,
+              role_on_mission: "Consultant",
+              budget_days_allocated: prevBudgetByUser.get(userId) ?? null,
+            },
             { onConflict: "mission_id,user_id" }
           );
         } else {

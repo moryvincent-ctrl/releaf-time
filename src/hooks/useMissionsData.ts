@@ -106,7 +106,7 @@ export function useMissionDetail(missionId: string | undefined) {
           .single(),
         supabase
           .from("assignments")
-          .select("user_id, role_on_mission, user:profiles(full_name, avatar_url)")
+          .select("id, user_id, role_on_mission, budget_days_allocated, user:profiles(full_name, avatar_url)")
           .eq("mission_id", missionId),
         supabase
           .from("time_entries")
@@ -125,19 +125,24 @@ export function useMissionDetail(missionId: string | undefined) {
       const consumed = Math.round((totalHours / 7) * 10) / 10;
 
       const consultantCount = (assignments ?? []).length || 1;
-      const perConsultantBudget = budgetTotal / consultantCount;
+      const defaultPerConsultant = budgetTotal / consultantCount;
 
       const consultants = (assignments ?? []).map((a: any) => {
         const name = a.user?.full_name ?? "Inconnu";
         const userEntries = (entries ?? []).filter((e: any) => e.user_id === a.user_id);
         const userHours = userEntries.reduce((sum: number, e: any) => sum + Number(e.hours), 0);
         const userConsumedDays = Math.round((userHours / 7) * 10) / 10;
+        // Budget alloué : valeur explicite si saisie, sinon part égale du total
+        const explicit = a.budget_days_allocated != null ? Number(a.budget_days_allocated) : null;
+        const budget = explicit ?? defaultPerConsultant;
         return {
+          assignmentId: a.id as string,
           name,
           initial: firstNameInitial(name),
           avatarUrl: (a.user?.avatar_url as string | null) ?? null,
           hours: Math.round(userHours * 10) / 10,
-          budget: Math.round(perConsultantBudget * 10) / 10,
+          budget: Math.round(budget * 10) / 10,
+          budgetOverride: explicit,
           consumed: userConsumedDays,
           role: a.role_on_mission,
         };

@@ -1,9 +1,14 @@
 import { useParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Check, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import BudgetBar from "@/components/BudgetBar";
 import { useMissionDetail } from "@/hooks/useMissionsData";
+import { supabase } from "@/lib/supabase";
 
 const poleColors: Record<string, string> = {
   "Releaf Carbon": "bg-primary/10 text-primary",
@@ -23,6 +28,26 @@ const statusLabel: Record<string, string> = {
 const MissionDetail = () => {
   const { id } = useParams();
   const { data: mission, isLoading } = useMissionDetail(id);
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+
+  const updateBudget = useMutation({
+    mutationFn: async ({ assignmentId, value }: { assignmentId: string; value: number | null }) => {
+      const { error } = await supabase
+        .from("assignments")
+        .update({ budget_days_allocated: value })
+        .eq("id", assignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Budget consultant mis à jour");
+      queryClient.invalidateQueries({ queryKey: ["mission_detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["all_missions"] });
+      setEditingId(null);
+    },
+    onError: (err: any) => toast.error(err.message ?? "Erreur"),
+  });
 
   if (isLoading) {
     return (
@@ -169,7 +194,57 @@ const MissionDetail = () => {
                           {c.name}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-semibold text-primary">{c.hours}h</td>
-                        <td className="px-4 py-3 text-sm text-right text-muted-foreground">{c.budget}j</td>
+                        <td className="px-4 py-3 text-sm text-right text-muted-foreground">
+                          {editingId === c.assignmentId ? (
+                            <div className="flex items-center gap-1 justify-end">
+                              <Input
+                                type="number"
+                                step={0.25}
+                                min={0}
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="w-20 h-7 text-right text-sm"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const v = parseFloat(editValue);
+                                    updateBudget.mutate({ assignmentId: c.assignmentId, value: isNaN(v) ? null : v });
+                                  } else if (e.key === "Escape") {
+                                    setEditingId(null);
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  const v = parseFloat(editValue);
+                                  updateBudget.mutate({ assignmentId: c.assignmentId, value: isNaN(v) ? null : v });
+                                }}
+                                className="p-1 text-secondary hover:bg-secondary/10 rounded"
+                                title="Valider"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="p-1 text-muted-foreground hover:bg-muted rounded"
+                                title="Annuler"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingId(c.assignmentId);
+                                setEditValue(String(c.budget));
+                              }}
+                              className={`px-2 py-0.5 rounded hover:bg-muted transition-colors ${c.budgetOverride == null ? "italic" : "font-medium text-primary"}`}
+                              title={c.budgetOverride == null ? "Cliquer pour fixer un budget personnalisé (actuellement part égale)" : "Cliquer pour modifier"}
+                            >
+                              {c.budget}j
+                            </button>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-right">{cp}%</td>
                         <td className="px-4 py-3"><BudgetBar percent={cp} /></td>
                       </tr>
