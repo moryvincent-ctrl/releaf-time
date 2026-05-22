@@ -1,37 +1,35 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from "date-fns";
+import { getPeriodBounds, type Period } from "@/components/PeriodSelector";
 
-export function useAdminStats() {
+export function useAdminStats(period: Period = "month") {
   return useQuery({
-    queryKey: ["admin_stats"],
+    queryKey: ["admin_stats", period],
     queryFn: async () => {
-      const now = new Date();
-      const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
-      const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
-      const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
-      const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      const { start, end } = getPeriodBounds(period);
 
       const [
-        { data: monthEntries },
+        { data: periodEntries },
         { data: activeMissions },
-        { data: weekEntries },
       ] = await Promise.all([
-        supabase.from("time_entries").select("hours, mission_id, user_id, internal_category").gte("entry_date", monthStart).lte("entry_date", monthEnd),
+        supabase
+          .from("time_entries")
+          .select("hours, mission_id, user_id, internal_category, user:profiles(full_name)")
+          .gte("entry_date", start)
+          .lte("entry_date", end),
         supabase.from("missions").select("id").eq("status", "active"),
-        supabase.from("time_entries").select("hours, user_id, mission_id, user:profiles(full_name)").gte("entry_date", weekStart).lte("entry_date", weekEnd),
       ]);
 
-      const totalHours = (monthEntries ?? []).reduce((sum, e) => sum + Number(e.hours), 0);
-      const clientHours = (monthEntries ?? []).filter((e) => e.mission_id).reduce((sum, e) => sum + Number(e.hours), 0);
+      const totalHours = (periodEntries ?? []).reduce((sum, e) => sum + Number(e.hours), 0);
+      const clientHours = (periodEntries ?? []).filter((e) => e.mission_id).reduce((sum, e) => sum + Number(e.hours), 0);
       const internalHours = totalHours - clientHours;
       const percentClient = totalHours > 0 ? Math.round((clientHours / totalHours) * 100) : 0;
-      const activeUsers = new Set((monthEntries ?? []).map((e) => e.user_id)).size;
+      const activeUsers = new Set((periodEntries ?? []).map((e) => e.user_id)).size;
 
-      // Répartition détaillée : "Client" en bloc + chaque catégorie interne séparée
+      // Répartition : "Client" en bloc + chaque catégorie interne séparée
       const breakdown = new Map<string, number>();
       if (clientHours > 0) breakdown.set("Client", clientHours);
-      for (const entry of monthEntries ?? []) {
+      for (const entry of periodEntries ?? []) {
         if (entry.mission_id) continue;
         const cat = (entry.internal_category as string | null) ?? "Non catégorisé";
         breakdown.set(cat, (breakdown.get(cat) ?? 0) + Number(entry.hours));
@@ -45,8 +43,9 @@ export function useAdminStats() {
         }))
         .sort((a, b) => b.hours - a.hours);
 
+      // Charge par consultant sur la période
       const byUser = new Map<string, { name: string; client: number; internal: number }>();
-      for (const entry of weekEntries ?? []) {
+      for (const entry of periodEntries ?? []) {
         const name = (entry.user as any)?.full_name ?? "Inconnu";
         const prev = byUser.get(entry.user_id) ?? { name, client: 0, internal: 0 };
         if (entry.mission_id) prev.client += Number(entry.hours);
@@ -55,6 +54,9 @@ export function useAdminStats() {
       }
 
       return {
+        period,
+        periodStart: start,
+        periodEnd: end,
         totalHours: Math.round(totalHours),
         activeConsultants: activeUsers,
         activeMissions: (activeMissions ?? []).length,
@@ -62,7 +64,7 @@ export function useAdminStats() {
         clientHours: Math.round(clientHours * 10) / 10,
         internalHours: Math.round(internalHours * 10) / 10,
         repartition,
-        weekByConsultant: Array.from(byUser.values())
+        byConsultant: Array.from(byUser.values())
           .map((u) => {
             const total = u.client + u.internal;
             return {

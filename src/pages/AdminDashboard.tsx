@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import { useAdminStats, useAdminEntries } from "@/hooks/useAdminData";
+import { PeriodSelector, PERIOD_LABELS_THIS, type Period } from "@/components/PeriodSelector";
 import { format } from "date-fns";
 
 // Palette pour les catégories internes (distincte du vert client)
@@ -25,8 +26,10 @@ const AdminDashboard = () => {
   const [filterConsultant, setFilterConsultant] = useState("");
   const [filterMission, setFilterMission] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [period, setPeriod] = useState<Period>("month");
+  const periodLabel = PERIOD_LABELS_THIS[period];
 
-  const { data: stats, isLoading: loadingStats } = useAdminStats();
+  const { data: stats, isLoading: loadingStats } = useAdminStats(period);
   const { data: entries = [], isLoading: loadingEntries } = useAdminEntries({
     consultant: filterConsultant,
     mission: filterMission,
@@ -37,9 +40,12 @@ const AdminDashboard = () => {
     <AppLayout role="admin">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-heading font-semibold text-primary">Vue globale</h2>
-        <Button variant="outline" className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground">
-          <Download size={16} className="mr-2" /> Exporter CSV
-        </Button>
+        <div className="flex items-center gap-3">
+          <PeriodSelector value={period} onChange={setPeriod} />
+          <Button variant="outline" className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground">
+            <Download size={16} className="mr-2" /> Exporter CSV
+          </Button>
+        </div>
       </div>
 
       {loadingStats ? (
@@ -48,23 +54,23 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <KpiCard icon={<Clock size={18} />} label="Heures ce mois" value={`${stats?.totalHours ?? 0}h`} />
+          <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${stats?.totalHours ?? 0}h`} />
           <KpiCard icon={<Users size={18} />} label="Consultants actifs" value={`${stats?.activeConsultants ?? 0}`} />
           <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${stats?.activeMissions ?? 0}`} />
           <KpiCard icon={<PieChartIcon size={18} />} label="% temps client" value={`${stats?.percentClient ?? 0}%`} />
         </div>
       )}
 
-      {/* Répartition client vs internes ce mois */}
+      {/* Répartition client vs internes sur la période */}
       <div className="bg-card rounded-lg border border-border p-5 mb-6">
         <div className="flex items-baseline justify-between mb-4">
-          <h3 className="label-uppercase">Répartition client / interne ce mois</h3>
+          <h3 className="label-uppercase">Répartition client / interne {periodLabel}</h3>
           <div className="text-xs text-muted-foreground">
             Client {stats?.clientHours ?? 0}h · Interne {stats?.internalHours ?? 0}h
           </div>
         </div>
         {(stats?.repartition ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Aucune saisie ce mois</p>
+          <p className="text-sm text-muted-foreground text-center py-8">Aucune saisie {periodLabel}</p>
         ) : (
           <div className="grid grid-cols-2 gap-6 items-center">
             <ResponsiveContainer width="100%" height={240}>
@@ -107,15 +113,15 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* Charge par consultant cette semaine */}
+      {/* Charge par consultant sur la période */}
       <div className="bg-card rounded-lg border border-border p-5 mb-6">
-        <h3 className="label-uppercase mb-4">Charge par consultant cette semaine</h3>
-        {(stats?.weekByConsultant ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Aucune saisie cette semaine</p>
+        <h3 className="label-uppercase mb-4">Charge par consultant {periodLabel}</h3>
+        {(stats?.byConsultant ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Aucune saisie {periodLabel}</p>
         ) : (
           <>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={stats?.weekByConsultant ?? []}>
+              <BarChart data={stats?.byConsultant ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(156, 20%, 88%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#1C1C1C" }} />
                 <YAxis tick={{ fontSize: 12, fill: "#1C1C1C" }} />
@@ -140,7 +146,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {(stats?.weekByConsultant ?? []).map((c) => (
+                {(stats?.byConsultant ?? []).map((c) => (
                   <tr key={c.fullName} className="border-b border-border last:border-b-0">
                     <td className="px-2 py-2 text-sm">{c.fullName}</td>
                     <td className="px-2 py-2 text-sm text-right font-semibold text-primary">{c.total}h</td>
