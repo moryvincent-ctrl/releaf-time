@@ -61,9 +61,26 @@ export function useManagerDashboard() {
 
       if (e2) throw e2;
 
-      const allMissions = (allAssignments ?? [])
-        .map((a: any) => a.mission)
-        .filter((m: any) => m);
+      // ── Missions où l'user a des time_entries même sans assignment (historique Excel)
+      const { data: userMissionEntries, error: e2b } = await supabase
+        .from("time_entries")
+        .select("mission:missions(*)")
+        .eq("user_id", user!.id)
+        .not("mission_id", "is", null);
+
+      if (e2b) throw e2b;
+
+      // Fusion par id
+      const missionById = new Map<string, any>();
+      for (const a of allAssignments ?? []) {
+        const m: any = a.mission;
+        if (m) missionById.set(m.id, m);
+      }
+      for (const e of userMissionEntries ?? []) {
+        const m: any = e.mission;
+        if (m && !missionById.has(m.id)) missionById.set(m.id, m);
+      }
+      const allMissions = Array.from(missionById.values());
       const myActiveAssignedCount = allMissions.filter((m: any) => m.status === "active").length;
 
       const managedMissionIds = new Set(

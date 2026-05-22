@@ -47,7 +47,7 @@ export function useConsultantDashboard() {
 
       if (e1) throw e1;
 
-      // ── Missions actives assignées au consultant
+      // ── Missions assignées (toutes statuts)
       const { data: assignments, error: e2 } = await supabase
         .from("assignments")
         .select(
@@ -57,9 +57,28 @@ export function useConsultantDashboard() {
 
       if (e2) throw e2;
 
-      const allAssignedMissions = (assignments ?? [])
-        .map((a: any) => a.mission)
-        .filter((m: any) => m);
+      // ── Missions où l'user a des time_entries même sans assignment (historique)
+      const { data: userMissionEntries, error: e2b } = await supabase
+        .from("time_entries")
+        .select(
+          "mission:missions(id, name, client, pole, nature_mission, budget_days, status)",
+        )
+        .eq("user_id", user!.id)
+        .not("mission_id", "is", null);
+
+      if (e2b) throw e2b;
+
+      // Fusionne par id en évitant les doublons
+      const missionById = new Map<string, any>();
+      for (const a of assignments ?? []) {
+        const m: any = a.mission;
+        if (m) missionById.set(m.id, m);
+      }
+      for (const e of userMissionEntries ?? []) {
+        const m: any = e.mission;
+        if (m && !missionById.has(m.id)) missionById.set(m.id, m);
+      }
+      const allAssignedMissions = Array.from(missionById.values());
       const activeMissions = allAssignedMissions.filter((m: any) => m.status === "active");
       const completedMissions = allAssignedMissions.filter((m: any) => m.status === "completed");
 
