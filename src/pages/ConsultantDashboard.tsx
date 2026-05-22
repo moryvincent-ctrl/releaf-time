@@ -4,12 +4,12 @@ import { Clock, Briefcase, Activity, Loader2 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
-import { PeriodSelector, PERIOD_LABELS_THIS, type Period } from "@/components/PeriodSelector";
+import { PeriodSelector, PERIOD_LABELS_THIS, defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 import { useConsultantDashboard } from "@/hooks/useConsultantDashboard";
 
 const ConsultantDashboard = () => {
-  const [period, setPeriod] = useState<Period>("week");
-  const periodLabel = PERIOD_LABELS_THIS[period];
+  const [period, setPeriod] = useState<PeriodValue>(defaultPeriodValue("week"));
+  const periodLabel = PERIOD_LABELS_THIS[period.period];
   const { data, isLoading } = useConsultantDashboard(period);
 
   if (isLoading || !data) {
@@ -81,7 +81,7 @@ const ConsultantDashboard = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 label-uppercase">{period === "week" ? "Semaine" : period === "month" ? "Mois" : "Année"}</th>
+                <th className="text-left px-4 py-2 label-uppercase">{period.period === "week" ? "Semaine" : period.period === "year" ? "Année" : "Mois"}</th>
                 <th className="text-right px-4 py-2 label-uppercase">Heures</th>
                 <th className="text-right px-4 py-2 label-uppercase">Missions</th>
               </tr>

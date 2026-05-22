@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { getPeriodBounds, type Period } from "@/components/PeriodSelector";
+import { defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 
-export function useAdminStats(period: Period = "month") {
+export function useAdminStats(value: PeriodValue = defaultPeriodValue("month")) {
   return useQuery({
-    queryKey: ["admin_stats", period],
+    queryKey: ["admin_stats", value.start, value.end],
     queryFn: async () => {
-      const { start, end } = getPeriodBounds(period);
+      const start = value.start;
+      const end = value.end;
+      const period = value.period;
 
       const [
         { data: periodEntries },

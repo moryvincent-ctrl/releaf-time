@@ -16,7 +16,7 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { type Period, getPeriodBounds } from "@/components/PeriodSelector";
+import { type Period, type PeriodValue, defaultPeriodValue } from "@/components/PeriodSelector";
 
 const WEEK_OPTS = { weekStartsOn: 1 as const };
 const RECENT_BUCKETS_COUNT = 4;
@@ -60,14 +60,16 @@ function alertLevel(percent: number): "warning" | "critical" | "exceeded" | null
   return null;
 }
 
-export function useManagerDashboard(period: Period = "week") {
+export function useManagerDashboard(value: PeriodValue = defaultPeriodValue("week")) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["manager_dashboard", user?.id, period],
+    queryKey: ["manager_dashboard", user?.id, value.start, value.end],
     queryFn: async () => {
       const now = new Date();
-      const { start, end } = getPeriodBounds(period, now);
+      const start = value.start;
+      const end = value.end;
+      const period: Exclude<Period, "custom"> = value.period === "custom" ? "month" : value.period;
       const earliestStart = bucketStart(period, subPeriod(period, now, RECENT_BUCKETS_COUNT - 1));
       const earliestStr = format(earliestStart, "yyyy-MM-dd");
 

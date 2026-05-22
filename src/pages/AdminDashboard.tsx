@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import { useAdminStats, useAdminEntries } from "@/hooks/useAdminData";
-import { PeriodSelector, PERIOD_LABELS_THIS, type Period } from "@/components/PeriodSelector";
+import { PeriodSelector, PERIOD_LABELS_THIS, defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 import { format } from "date-fns";
 
 // Palette pour les catégories internes (distincte du vert client)
@@ -26,8 +26,8 @@ const AdminDashboard = () => {
   const [filterConsultant, setFilterConsultant] = useState("");
   const [filterMission, setFilterMission] = useState("");
   const [filterDate, setFilterDate] = useState("");
-  const [period, setPeriod] = useState<Period>("month");
-  const periodLabel = PERIOD_LABELS_THIS[period];
+  const [period, setPeriod] = useState<PeriodValue>(defaultPeriodValue("month"));
+  const periodLabel = PERIOD_LABELS_THIS[period.period];
 
   const { data: stats, isLoading: loadingStats } = useAdminStats(period);
   const { data: entries = [], isLoading: loadingEntries } = useAdminEntries({

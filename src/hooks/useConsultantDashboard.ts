@@ -16,7 +16,7 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { type Period, getPeriodBounds } from "@/components/PeriodSelector";
+import { type Period, type PeriodValue, defaultPeriodValue } from "@/components/PeriodSelector";
 
 const WEEK_OPTS = { weekStartsOn: 1 as const };
 const RECENT_BUCKETS_COUNT = 4;
@@ -63,14 +63,17 @@ function referenceHours(period: Period, start: string, end: string): number {
   return Math.round((days / 7) * WEEKLY_BASE_HOURS);
 }
 
-export function useConsultantDashboard(period: Period = "week") {
+export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("week")) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["consultant_dashboard", user?.id, period],
+    queryKey: ["consultant_dashboard", user?.id, value.start, value.end],
     queryFn: async () => {
       const now = new Date();
-      const { start, end } = getPeriodBounds(period, now);
+      const start = value.start;
+      const end = value.end;
+      // Pour les buckets historiques on choisit une granularité (custom = mensuel par défaut)
+      const period: Exclude<Period, "custom"> = value.period === "custom" ? "month" : value.period;
 
       // Plage couvrant les N dernières buckets pour l'historique
       const earliestStart = bucketStart(period, subPeriod(period, now, RECENT_BUCKETS_COUNT - 1));

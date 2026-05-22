@@ -4,7 +4,7 @@ import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
 import { useState } from "react";
-import { PeriodSelector, PERIOD_LABELS_THIS, type Period } from "@/components/PeriodSelector";
+import { PeriodSelector, PERIOD_LABELS_THIS, defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 import { useManagerDashboard } from "@/hooks/useManagerData";
 
 const alertCopy: Record<"warning" | "critical" | "exceeded", { label: string; className: string; emoji: string }> = {
@@ -14,8 +14,8 @@ const alertCopy: Record<"warning" | "critical" | "exceeded", { label: string; cl
 };
 
 const ManagerDashboard = () => {
-  const [period, setPeriod] = useState<Period>("week");
-  const periodLabel = PERIOD_LABELS_THIS[period];
+  const [period, setPeriod] = useState<PeriodValue>(defaultPeriodValue("week"));
+  const periodLabel = PERIOD_LABELS_THIS[period.period];
   const { data, isLoading } = useManagerDashboard(period);
 
   if (isLoading || !data) {
@@ -124,7 +124,7 @@ const ManagerDashboard = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 label-uppercase">{period === "week" ? "Semaine" : period === "month" ? "Mois" : "Année"}</th>
+                <th className="text-left px-4 py-2 label-uppercase">{period.period === "week" ? "Semaine" : period.period === "year" ? "Année" : "Mois"}</th>
                 <th className="text-right px-4 py-2 label-uppercase">Heures</th>
                 <th className="text-right px-4 py-2 label-uppercase">Missions</th>
               </tr>
