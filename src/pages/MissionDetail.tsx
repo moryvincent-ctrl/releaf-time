@@ -251,6 +251,38 @@ const MissionDetail = () => {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  {(() => {
+                    const totalAllocated = mission.consultants.reduce((s, c) => s + c.budget, 0);
+                    const totalAllocatedRounded = Math.round(totalAllocated * 10) / 10;
+                    const delta = Math.round((totalAllocated - mission.budgetTotal) * 10) / 10;
+                    const status: "ok" | "under" | "over" = Math.abs(delta) < 0.05 ? "ok" : (delta < 0 ? "under" : "over");
+                    return (
+                      <tr className="bg-muted/40 border-t border-border">
+                        <td className="px-4 py-3 text-sm font-semibold text-primary">Total alloué</td>
+                        <td></td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-primary">
+                          {totalAllocatedRounded}j / {mission.budgetTotal}j
+                        </td>
+                        <td colSpan={2} className="px-4 py-3 text-sm">
+                          {status === "ok" && (
+                            <span className="text-secondary font-medium">✓ Répartition cohérente</span>
+                          )}
+                          {status === "under" && (
+                            <span className="text-[hsl(38,92%,40%)] font-medium">
+                              🟡 Sous-allocation : il reste {Math.abs(delta)}j à répartir
+                            </span>
+                          )}
+                          {status === "over" && (
+                            <span className="text-destructive font-medium">
+                              🔴 Sur-allocation : {delta}j de trop par rapport au budget mission
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </tfoot>
               </table>
             )}
           </div>
