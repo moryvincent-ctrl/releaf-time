@@ -3,6 +3,8 @@ import { Clock, Briefcase, Activity, AlertTriangle, Loader2 } from "lucide-react
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
+import { useState } from "react";
+import { PeriodSelector, PERIOD_LABELS_THIS, type Period } from "@/components/PeriodSelector";
 import { useManagerDashboard } from "@/hooks/useManagerData";
 
 const alertCopy: Record<"warning" | "critical" | "exceeded", { label: string; className: string; emoji: string }> = {
@@ -12,7 +14,9 @@ const alertCopy: Record<"warning" | "critical" | "exceeded", { label: string; cl
 };
 
 const ManagerDashboard = () => {
-  const { data, isLoading } = useManagerDashboard();
+  const [period, setPeriod] = useState<Period>("week");
+  const periodLabel = PERIOD_LABELS_THIS[period];
+  const { data, isLoading } = useManagerDashboard(period);
 
   if (isLoading || !data) {
     return (
@@ -26,11 +30,14 @@ const ManagerDashboard = () => {
 
   return (
     <AppLayout role="manager">
-      <h2 className="text-xl font-heading font-semibold text-primary mb-6">Mon tableau de bord</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-heading font-semibold text-primary">Mon tableau de bord</h2>
+        <PeriodSelector value={period} onChange={setPeriod} />
+      </div>
 
       {/* 4 KPI identiques au consultant */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <KpiCard icon={<Clock size={18} />} label="Heures cette semaine" value={`${data.hoursThisWeek}h`} />
+        <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${data.hoursThisWeek}h`} />
         <KpiCard
           icon={<Activity size={18} />}
           label={`Charge client (${data.chargeClient}%)`}
@@ -47,7 +54,7 @@ const ManagerDashboard = () => {
       {/* Répartition charge cette semaine */}
       <div className="bg-card rounded-lg border border-border p-4 mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="label-uppercase">Charge cette semaine (base {data.weeklyBase}h)</span>
+          <span className="label-uppercase">Charge {periodLabel} (base {data.weeklyBase}h)</span>
           <span className="text-xs text-muted-foreground">{data.charge}% — {data.hoursThisWeek}h / {data.weeklyBase}h</span>
         </div>
         <div className="flex h-3 rounded-full overflow-hidden bg-muted">
@@ -117,7 +124,7 @@ const ManagerDashboard = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 label-uppercase">Semaine</th>
+                <th className="text-left px-4 py-2 label-uppercase">{period === "week" ? "Semaine" : period === "month" ? "Mois" : "Année"}</th>
                 <th className="text-right px-4 py-2 label-uppercase">Heures</th>
                 <th className="text-right px-4 py-2 label-uppercase">Missions</th>
               </tr>
@@ -125,7 +132,7 @@ const ManagerDashboard = () => {
             <tbody>
               {data.recentWeeks.map((w, i) => (
                 <tr key={i} className="border-b border-border last:border-b-0">
-                  <td className="px-4 py-2.5 text-sm">{w.week}</td>
+                  <td className="px-4 py-2.5 text-sm">{w.label}</td>
                   <td className="px-4 py-2.5 text-sm text-right font-semibold text-primary">{w.hours}h</td>
                   <td className="px-4 py-2.5 text-sm text-right text-muted-foreground">{w.missions}</td>
                 </tr>

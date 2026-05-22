@@ -4,71 +4,103 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
   subWeeks,
+  subMonths,
+  subYears,
   format,
   parseISO,
+  differenceInCalendarDays,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import { type Period, getPeriodBounds } from "@/components/PeriodSelector";
 
 const WEEK_OPTS = { weekStartsOn: 1 as const };
-const RECENT_WEEKS_COUNT = 4;
+const RECENT_BUCKETS_COUNT = 4;
 const WEEKLY_BASE_HOURS = 35;
 
-function weekKey(date: Date): string {
-  return format(startOfWeek(date, WEEK_OPTS), "yyyy-MM-dd");
+function bucketStart(period: Period, ref: Date): Date {
+  if (period === "week") return startOfWeek(ref, WEEK_OPTS);
+  if (period === "month") return startOfMonth(ref);
+  return startOfYear(ref);
 }
 
-function formatWeekLabel(weekStart: Date): string {
-  const weekEnd = endOfWeek(weekStart, WEEK_OPTS);
-  const startDay = format(weekStart, "d", { locale: fr });
-  const endDay = format(weekEnd, "d MMM yyyy", { locale: fr });
-  return `${startDay}–${endDay}`;
+function bucketEnd(period: Period, ref: Date): Date {
+  if (period === "week") return endOfWeek(ref, WEEK_OPTS);
+  if (period === "month") return endOfMonth(ref);
+  return endOfYear(ref);
 }
 
-export function useConsultantDashboard() {
+function subPeriod(period: Period, ref: Date, n: number): Date {
+  if (period === "week") return subWeeks(ref, n);
+  if (period === "month") return subMonths(ref, n);
+  return subYears(ref, n);
+}
+
+function bucketKey(period: Period, date: Date): string {
+  return format(bucketStart(period, date), "yyyy-MM-dd");
+}
+
+function formatBucketLabel(period: Period, start: Date): string {
+  if (period === "week") {
+    const end = endOfWeek(start, WEEK_OPTS);
+    const startDay = format(start, "d", { locale: fr });
+    const endDay = format(end, "d MMM yyyy", { locale: fr });
+    return `${startDay}–${endDay}`;
+  }
+  if (period === "month") return format(start, "MMMM yyyy", { locale: fr });
+  return format(start, "yyyy");
+}
+
+function referenceHours(period: Period, start: string, end: string): number {
+  // Base de référence proportionnelle à la longueur de la période
+  const days = differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
+  // 35h / 7 jours = 5h/jour calendaire en moyenne. Pour ne compter que les jours ouvrés (5/7) :
+  // ratio = 35/7 * 5 = 25h/sem si on ne comptait que les ouvrés → on prend la moyenne simple 35h/semaine
+  return Math.round((days / 7) * WEEKLY_BASE_HOURS);
+}
+
+export function useConsultantDashboard(period: Period = "week") {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["consultant_dashboard", user?.id],
+    queryKey: ["consultant_dashboard", user?.id, period],
     queryFn: async () => {
       const now = new Date();
-      const currentWeekStart = startOfWeek(now, WEEK_OPTS);
-      const earliestWeekStart = startOfWeek(
-        subWeeks(now, RECENT_WEEKS_COUNT - 1),
-        WEEK_OPTS,
-      );
+      const { start, end } = getPeriodBounds(period, now);
 
-      // ── Saisies des N dernières semaines (inclut la semaine courante)
+      // Plage couvrant les N dernières buckets pour l'historique
+      const earliestStart = bucketStart(period, subPeriod(period, now, RECENT_BUCKETS_COUNT - 1));
+      const earliestStr = format(earliestStart, "yyyy-MM-dd");
+      const fetchUntil = end; // jusqu'à la fin de la période courante
+
+      // ── Saisies de la plage (du début de l'historique à la fin de la période courante)
       const { data: entries, error: e1 } = await supabase
         .from("time_entries")
         .select("hours, entry_date, mission_id, internal_category")
         .eq("user_id", user!.id)
-        .gte("entry_date", format(earliestWeekStart, "yyyy-MM-dd"));
-
+        .gte("entry_date", earliestStr)
+        .lte("entry_date", fetchUntil);
       if (e1) throw e1;
 
-      // ── Missions assignées (toutes statuts)
+      // ── Missions assignées
       const { data: assignments, error: e2 } = await supabase
         .from("assignments")
-        .select(
-          "mission:missions(id, name, client, pole, nature_mission, budget_days, status)",
-        )
+        .select("mission:missions(id, name, client, pole, nature_mission, budget_days, status)")
         .eq("user_id", user!.id);
-
       if (e2) throw e2;
 
-      // ── Missions où l'user a des time_entries même sans assignment (historique)
+      // ── Missions où l'user a des time_entries (historique)
       const { data: userMissionEntries, error: e2b } = await supabase
         .from("time_entries")
-        .select(
-          "mission:missions(id, name, client, pole, nature_mission, budget_days, status)",
-        )
+        .select("mission:missions(id, name, client, pole, nature_mission, budget_days, status)")
         .eq("user_id", user!.id)
         .not("mission_id", "is", null);
-
       if (e2b) throw e2b;
 
-      // Fusionne par id en évitant les doublons
       const missionById = new Map<string, any>();
       for (const a of assignments ?? []) {
         const m: any = a.mission;
@@ -82,15 +114,14 @@ export function useConsultantDashboard() {
       const activeMissions = allAssignedMissions.filter((m: any) => m.status === "active");
       const completedMissions = allAssignedMissions.filter((m: any) => m.status === "completed");
 
-      // ── Total heures par mission (pour calculer le % consommé)
+      // ── Total heures par mission (pour % consommé global)
       const missionIds = allAssignedMissions.map((m: any) => m.id);
-      let hoursByMission = new Map<string, number>();
+      const hoursByMission = new Map<string, number>();
       if (missionIds.length > 0) {
         const { data: allEntries, error: e3 } = await supabase
           .from("time_entries")
           .select("mission_id, hours")
           .in("mission_id", missionIds);
-
         if (e3) throw e3;
         for (const e of allEntries ?? []) {
           const prev = hoursByMission.get(e.mission_id as string) ?? 0;
@@ -98,45 +129,43 @@ export function useConsultantDashboard() {
         }
       }
 
-      // ── KPIs cette semaine
-      const thisWeekKey = weekKey(currentWeekStart);
-      const thisWeekEntries = (entries ?? []).filter(
-        (e: any) => weekKey(parseISO(e.entry_date)) === thisWeekKey,
+      // ── KPIs sur la période courante
+      const periodEntries = (entries ?? []).filter(
+        (e: any) => e.entry_date >= start && e.entry_date <= end,
       );
-      const hoursThisWeek = thisWeekEntries.reduce(
-        (sum: number, e: any) => sum + Number(e.hours),
-        0,
-      );
-      const clientHoursThisWeek = thisWeekEntries
+      const hoursThisPeriod = periodEntries.reduce((s: number, e: any) => s + Number(e.hours), 0);
+      const clientHoursThisPeriod = periodEntries
         .filter((e: any) => e.mission_id)
-        .reduce((sum: number, e: any) => sum + Number(e.hours), 0);
-      const internalHoursThisWeek = hoursThisWeek - clientHoursThisWeek;
-      const charge = Math.round((hoursThisWeek / WEEKLY_BASE_HOURS) * 100);
-      const chargeClient = Math.round((clientHoursThisWeek / WEEKLY_BASE_HOURS) * 100);
-      const chargeInternal = Math.round((internalHoursThisWeek / WEEKLY_BASE_HOURS) * 100);
+        .reduce((s: number, e: any) => s + Number(e.hours), 0);
+      const internalHoursThisPeriod = hoursThisPeriod - clientHoursThisPeriod;
+      const refHours = referenceHours(period, start, end);
+      const charge = refHours > 0 ? Math.round((hoursThisPeriod / refHours) * 100) : 0;
+      const chargeClient = refHours > 0 ? Math.round((clientHoursThisPeriod / refHours) * 100) : 0;
+      const chargeInternal = refHours > 0 ? Math.round((internalHoursThisPeriod / refHours) * 100) : 0;
 
-      // ── Historique récent : agrège par semaine
-      const byWeek = new Map<string, { hours: number; missions: Set<string> }>();
+      // ── Historique récent : agrège par bucket
+      const byBucket = new Map<string, { hours: number; missions: Set<string> }>();
       for (const entry of entries ?? []) {
-        const key = weekKey(parseISO(entry.entry_date));
-        const prev = byWeek.get(key) ?? { hours: 0, missions: new Set<string>() };
+        const key = bucketKey(period, parseISO(entry.entry_date));
+        const prev = byBucket.get(key) ?? { hours: 0, missions: new Set<string>() };
         prev.hours += Number(entry.hours);
         if (entry.mission_id) prev.missions.add(entry.mission_id as string);
-        byWeek.set(key, prev);
+        byBucket.set(key, prev);
       }
 
-      const recentWeeks = Array.from({ length: RECENT_WEEKS_COUNT }, (_, i) => {
-        const ws = startOfWeek(subWeeks(now, i), WEEK_OPTS);
-        const key = format(ws, "yyyy-MM-dd");
-        const agg = byWeek.get(key) ?? { hours: 0, missions: new Set<string>() };
+      const recentBuckets = Array.from({ length: RECENT_BUCKETS_COUNT }, (_, i) => {
+        const refDate = subPeriod(period, now, i);
+        const bStart = bucketStart(period, refDate);
+        const key = format(bStart, "yyyy-MM-dd");
+        const agg = byBucket.get(key) ?? { hours: 0, missions: new Set<string>() };
         return {
-          week: formatWeekLabel(ws),
+          label: formatBucketLabel(period, bStart),
           hours: Math.round(agg.hours * 10) / 10,
           missions: agg.missions.size,
         };
       });
 
-      // ── Missions affichées avec % budget consommé
+      // ── Missions en cours / terminées
       const formatMission = (m: any, statusLabel: string) => {
         const totalHours = hoursByMission.get(m.id) ?? 0;
         const consumedDays = Math.round((totalHours / 7) * 10) / 10;
@@ -163,15 +192,16 @@ export function useConsultantDashboard() {
       );
 
       return {
-        hoursThisWeek: Math.round(hoursThisWeek * 10) / 10,
-        clientHoursThisWeek: Math.round(clientHoursThisWeek * 10) / 10,
-        internalHoursThisWeek: Math.round(internalHoursThisWeek * 10) / 10,
+        period,
+        hoursThisWeek: Math.round(hoursThisPeriod * 10) / 10,
+        clientHoursThisWeek: Math.round(clientHoursThisPeriod * 10) / 10,
+        internalHoursThisWeek: Math.round(internalHoursThisPeriod * 10) / 10,
         activeMissionsCount: activeMissions.length,
         charge,
         chargeClient,
         chargeInternal,
-        weeklyBase: WEEKLY_BASE_HOURS,
-        recentWeeks,
+        weeklyBase: refHours,
+        recentWeeks: recentBuckets, // garde le nom pour compat UI
         missions,
         missionsCompleted,
       };
