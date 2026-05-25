@@ -108,7 +108,7 @@ const DEFAULT_TRANSVERSE_PROP_NAMES: TransversePropNames = {
   priority:   "Priorité",
   start_date: "Date de début",
   end_date:   "Date de fin",
-  assignee:   "Personne assignée",
+  assignee:   "Personnes assignées",
 };
 
 const TRANSVERSE_PROP_LABELS: Record<keyof TransversePropNames, string> = {

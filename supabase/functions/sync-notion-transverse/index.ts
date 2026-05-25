@@ -88,7 +88,7 @@ const DEFAULT_PROP_NAMES: PropertyNames = {
   priority:   "Priorité",
   start_date: "Date de début",
   end_date:   "Date de fin",
-  assignee:   "Personne assignée",
+  assignee:   "Personnes assignées",
 };
 
 // ─── Handler principal ────────────────────────────────────────────────────────
