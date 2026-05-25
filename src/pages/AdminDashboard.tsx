@@ -127,7 +127,7 @@ const AdminDashboard = () => {
                 <YAxis tick={{ fontSize: 12, fill: "#1C1C1C" }} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(156, 20%, 88%)", borderRadius: "8px", fontSize: "13px" }}
-                  formatter={(value: any, name: any) => [`${value}h`, name === "client" ? "Client" : "Interne"]}
+                  formatter={(value: any, name: any) => [`${value}h`, name]}
                 />
                 <Bar dataKey="client" stackId="a" fill="#007F5F" name="Client" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="internal" stackId="a" fill="#002E22" name="Interne" radius={[6, 6, 0, 0]} />
