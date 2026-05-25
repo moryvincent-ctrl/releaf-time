@@ -30,9 +30,17 @@ const INTERNAL_CATEGORIES: InternalCategory[] = [
   "Formation",
   "Communication",
   "Recrutement",
+];
+
+// Projets transverses : pour l'instant en dur, à terme alimenté depuis Notion.
+// Stockés côté DB via internal_category (en attendant la table dédiée).
+const TRANSVERSE_PROJECTS: InternalCategory[] = [
   "Développement SaaS Releaf",
   "Développement site web",
 ];
+
+// Propositions commerciales : à brancher sur Notion. Vide pour l'instant.
+const COMMERCIAL_PROPOSALS: InternalCategory[] = [];
 
 const DAYS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 const MAX_HOURS_PER_DAY = 7;
@@ -129,6 +137,8 @@ const ConsultantView = () => {
     const allKeys = [
       ...assignedMissions.map((m: any) => buildKey(m.id, null)),
       ...INTERNAL_CATEGORIES.map((c) => buildKey(null, c)),
+      ...TRANSVERSE_PROJECTS.map((c) => buildKey(null, c)),
+      ...COMMERCIAL_PROPOSALS.map((c) => buildKey(null, c)),
     ];
     return allKeys.reduce((sum, k) => sum + (getCell(k, date).hours || 0), 0);
   };
@@ -141,6 +151,8 @@ const ConsultantView = () => {
       const allRows: { key: string; missionId: string | null; category: InternalCategory | null }[] = [
         ...assignedMissions.map((m: any) => ({ key: buildKey(m.id, null), missionId: m.id, category: null })),
         ...INTERNAL_CATEGORIES.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
+        ...TRANSVERSE_PROJECTS.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
+        ...COMMERCIAL_PROPOSALS.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
       ];
 
       await Promise.all(
@@ -348,6 +360,32 @@ const ConsultantView = () => {
             </tr>
             {INTERNAL_CATEGORIES.map((cat) =>
               renderRow(buildKey(null, cat), cat)
+            )}
+
+            <tr>
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+                Projets transverses
+              </td>
+            </tr>
+            {TRANSVERSE_PROJECTS.map((cat) =>
+              renderRow(buildKey(null, cat), cat)
+            )}
+
+            <tr>
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+                Propositions commerciales
+              </td>
+            </tr>
+            {COMMERCIAL_PROPOSALS.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-4 text-sm text-muted-foreground text-center">
+                  Aucune proposition commerciale — bientôt connecté à Notion
+                </td>
+              </tr>
+            ) : (
+              COMMERCIAL_PROPOSALS.map((cat) =>
+                renderRow(buildKey(null, cat), cat)
+              )
             )}
           </tbody>
 
