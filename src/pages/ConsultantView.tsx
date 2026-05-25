@@ -224,7 +224,7 @@ const ConsultantView = () => {
                   }
                   setCell(key, date, { hours: clamped });
                 }}
-                className="w-14 h-8 text-center mx-auto bg-card border-input text-sm rounded-md"
+                className="w-20 h-8 text-center mx-auto bg-card border-input text-sm rounded-md"
               />
               <button
                 onClick={() => setShowComment(isActive ? null : { key, date })}
@@ -300,7 +300,7 @@ const ConsultantView = () => {
                 const dayNum = date.getDate();
                 const monthShort = date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "");
                 return (
-                  <th key={d} className="text-center px-2 py-3 text-base font-semibold uppercase tracking-wide text-primary w-16">
+                  <th key={d} className="text-center px-2 py-3 text-base font-semibold uppercase tracking-wide text-primary w-20">
                     <div>{d}</div>
                     <div className="text-xs font-normal normal-case tracking-normal text-muted-foreground mt-0.5">
                       {dayNum} {monthShort}
