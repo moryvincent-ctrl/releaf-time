@@ -60,6 +60,7 @@ const ConsultantView = () => {
   const [grid, setGrid] = useState<GridState>({});
   const [showComment, setShowComment] = useState<{ key: string; date: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   // Missions ajoutées ponctuellement (état local pour la session courante)
   const [extraMissionIds, setExtraMissionIds] = useState<Set<string>>(new Set());
@@ -107,6 +108,7 @@ const ConsultantView = () => {
       };
     }
     setGrid(newGrid);
+    setDirty(false);
   }, [entries]);
 
   const getCell = (key: string, date: string): GridCell =>
@@ -117,6 +119,7 @@ const ConsultantView = () => {
       ...prev,
       [key]: { ...prev[key], [date]: { ...getCell(key, date), ...patch } },
     }));
+    setDirty(true);
   };
 
   const rowTotal = (key: string) =>
@@ -132,19 +135,7 @@ const ConsultantView = () => {
 
   const grandTotal = weekDays.reduce((sum, d) => sum + colTotal(d), 0);
 
-  const prevWeek = () => {
-    const d = new Date(weekStart + "T12:00:00");
-    d.setDate(d.getDate() - 7);
-    setWeekStart(getWeekStart(d));
-  };
-
-  const nextWeek = () => {
-    const d = new Date(weekStart + "T12:00:00");
-    d.setDate(d.getDate() + 7);
-    setWeekStart(getWeekStart(d));
-  };
-
-  const handleSave = async () => {
+  const saveGrid = async (opts: { silent?: boolean } = {}) => {
     setSaving(true);
     try {
       const allRows: { key: string; missionId: string | null; category: InternalCategory | null }[] = [
@@ -173,13 +164,31 @@ const ConsultantView = () => {
           .update({ last_save_at: new Date().toISOString() })
           .eq("id", user.id);
       }
-      toast.success("Feuille de temps sauvegardée");
+      setDirty(false);
+      if (!opts.silent) toast.success("Feuille de temps sauvegardée");
+      return true;
     } catch {
       toast.error("Erreur lors de la sauvegarde");
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSave = () => saveGrid();
+
+  const changeWeek = async (deltaDays: number) => {
+    if (dirty) {
+      const ok = await saveGrid({ silent: true });
+      if (!ok) return; // En cas d'erreur, on reste sur la semaine courante pour ne pas perdre les saisies
+    }
+    const d = new Date(weekStart + "T12:00:00");
+    d.setDate(d.getDate() + deltaDays);
+    setWeekStart(getWeekStart(d));
+  };
+
+  const prevWeek = () => changeWeek(-7);
+  const nextWeek = () => changeWeek(7);
 
   const renderRow = (key: string, name: string, client?: string, nature?: string, pole?: string) => (
     <tr key={key} className="border-b border-border last:border-b-0">
@@ -257,13 +266,13 @@ const ConsultantView = () => {
       <h2 className="text-xl font-heading font-semibold text-primary mb-4">Mes temps passés</h2>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={prevWeek}>
+          <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={prevWeek} disabled={saving}>
             <ChevronLeft size={16} />
           </Button>
           <h3 className="text-lg font-heading font-semibold text-primary text-center w-80">
             Semaine du {formatWeekLabel(weekStart)}
           </h3>
-          <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={nextWeek}>
+          <Button variant="outline" size="icon" className="rounded-lg border-input h-8 w-8" onClick={nextWeek} disabled={saving}>
             <ChevronRight size={16} />
           </Button>
         </div>
