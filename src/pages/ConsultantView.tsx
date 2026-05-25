@@ -326,7 +326,7 @@ const ConsultantView = () => {
 
           <tbody>
             <tr>
-              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted">
                 Missions
               </td>
             </tr>
@@ -354,7 +354,7 @@ const ConsultantView = () => {
               </td>
             </tr>
             <tr>
-              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted">
                 Temps internes
               </td>
             </tr>
@@ -363,7 +363,7 @@ const ConsultantView = () => {
             )}
 
             <tr>
-              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted">
                 Projets transverses
               </td>
             </tr>
@@ -372,7 +372,7 @@ const ConsultantView = () => {
             )}
 
             <tr>
-              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted/30">
+              <td colSpan={7} className="px-4 py-3 text-base font-heading font-semibold text-secondary bg-muted">
                 Propositions commerciales
               </td>
             </tr>
