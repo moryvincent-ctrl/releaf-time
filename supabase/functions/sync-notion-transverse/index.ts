@@ -7,6 +7,12 @@ const corsHeaders = {
 
 // ─── Types Notion ─────────────────────────────────────────────────────────────
 
+interface NotionPerson {
+  id: string;
+  name: string;
+  person?: { email: string };
+}
+
 interface NotionPage {
   id: string;
   properties: Record<string, any>;
@@ -28,6 +34,10 @@ function getDate(prop: any): string | null {
   if (prop.date?.start) return prop.date.start;
   if (prop.formula?.date?.start) return prop.formula.date.start;
   return null;
+}
+
+function getPeople(prop: any): NotionPerson[] {
+  return prop?.people ?? [];
 }
 
 // ─── Mapping Notion → notre schéma ───────────────────────────────────────────
@@ -57,6 +67,7 @@ function mapPage(page: NotionPage, propNames: PropertyNames) {
     priority,
     start_date: getDate(props[propNames.start_date]),
     end_date:   getDate(props[propNames.end_date]),
+    assigned_people: getPeople(props[propNames.assignee]),
   };
 }
 
@@ -68,6 +79,7 @@ interface PropertyNames {
   priority:   string;
   start_date: string;
   end_date:   string;
+  assignee:   string;
 }
 
 const DEFAULT_PROP_NAMES: PropertyNames = {
@@ -76,6 +88,7 @@ const DEFAULT_PROP_NAMES: PropertyNames = {
   priority:   "Priorité",
   start_date: "Date de début",
   end_date:   "Date de fin",
+  assignee:   "Personne assignée",
 };
 
 // ─── Handler principal ────────────────────────────────────────────────────────
@@ -146,16 +159,21 @@ Deno.serve(async (req: Request) => {
       cursor = data.has_more ? data.next_cursor : undefined;
     } while (cursor);
 
-    // ── 2. Upsert chaque projet transverse ────────────────────────────────────
+    // ── 2. Charger tous les profils (pour matcher les personnes par email) ───
+    const { data: profiles } = await supabase.from("profiles").select("id, email");
+    const profileByEmail = new Map((profiles ?? []).map((p: any) => [p.email.toLowerCase(), p.id]));
+
+    // ── 3. Upsert chaque projet transverse + ses assignations ────────────────
     let synced = 0;
     let skipped = 0;
+    const assignmentWarnings: string[] = [];
 
     for (const page of pages) {
       const mapped = mapPage(page, propNames);
 
       if (!mapped.name) { skipped++; continue; }
 
-      const { error: upsertError } = await supabase
+      const { data: project, error: upsertError } = await supabase
         .from("transverse_projects")
         .upsert(
           {
@@ -168,9 +186,31 @@ Deno.serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           },
           { onConflict: "notion_id" }
-        );
+        )
+        .select("id")
+        .single();
 
-      if (upsertError) { skipped++; continue; }
+      if (upsertError || !project) { skipped++; continue; }
+
+      // Resync des assignations : on supprime puis réinsère depuis Notion.
+      await supabase
+        .from("transverse_project_assignments")
+        .delete()
+        .eq("transverse_project_id", project.id);
+
+      for (const person of mapped.assigned_people) {
+        const email = person.person?.email?.toLowerCase();
+        const userId = email ? profileByEmail.get(email) : null;
+        if (userId) {
+          await supabase.from("transverse_project_assignments").upsert(
+            { transverse_project_id: project.id, user_id: userId },
+            { onConflict: "transverse_project_id,user_id" }
+          );
+        } else {
+          assignmentWarnings.push(`Projet "${mapped.name}" : personne "${person.name}" (${email ?? "email inconnu"}) non trouvée dans les profils`);
+        }
+      }
+
       synced++;
     }
 
@@ -185,6 +225,7 @@ Deno.serve(async (req: Request) => {
         synced,
         skipped,
         total: pages.length,
+        warnings: assignmentWarnings,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

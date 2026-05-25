@@ -117,19 +117,47 @@ export function useActiveMissions() {
   });
 }
 
-// Projets transverses actifs (alimentés depuis Notion via sync-notion-transverse)
+// Projets transverses actifs sur lesquels le user courant est assigné
+// (assignations alimentées depuis la colonne "Personne assignée" Notion).
 export function useTransverseProjects() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ["transverse_projects"],
+    queryKey: ["transverse_projects", user?.id],
     queryFn: async () => {
+      // 1. IDs des projets sur lesquels le user est assigné
+      const { data: assignments, error: e1 } = await supabase
+        .from("transverse_project_assignments")
+        .select("transverse_project_id")
+        .eq("user_id", user!.id);
+      if (e1) throw e1;
+      const assignedIds = (assignments ?? []).map((a: any) => a.transverse_project_id);
+
+      // 2. IDs des projets sur lesquels le user a déjà saisi du temps
+      //    (dépannage ponctuel — même logique que useAssignedMissions)
+      const { data: entries, error: e2 } = await supabase
+        .from("time_entries")
+        .select("transverse_project_id")
+        .eq("user_id", user!.id)
+        .not("transverse_project_id", "is", null);
+      if (e2) throw e2;
+      const entriesIds = (entries ?? [])
+        .map((e: any) => e.transverse_project_id)
+        .filter(Boolean) as string[];
+
+      const allIds = Array.from(new Set([...assignedIds, ...entriesIds]));
+      if (allIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from("transverse_projects")
         .select("id, name, status")
         .eq("status", "active")
+        .in("id", allIds)
         .order("name", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!user,
   });
 }
 

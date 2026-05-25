@@ -99,6 +99,7 @@ type TransversePropNames = {
   priority:   string;
   start_date: string;
   end_date:   string;
+  assignee:   string;
 };
 
 const DEFAULT_TRANSVERSE_PROP_NAMES: TransversePropNames = {
@@ -107,6 +108,7 @@ const DEFAULT_TRANSVERSE_PROP_NAMES: TransversePropNames = {
   priority:   "Priorité",
   start_date: "Date de début",
   end_date:   "Date de fin",
+  assignee:   "Personne assignée",
 };
 
 const TRANSVERSE_PROP_LABELS: Record<keyof TransversePropNames, string> = {
@@ -115,6 +117,7 @@ const TRANSVERSE_PROP_LABELS: Record<keyof TransversePropNames, string> = {
   priority:   "Priorité",
   start_date: "Date début",
   end_date:   "Date fin",
+  assignee:   "Personne assignée (filtre la vue user)",
 };
 
 // ─── Composant ────────────────────────────────────────────────────────────────
