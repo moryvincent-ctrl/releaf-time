@@ -15,6 +15,7 @@ import {
   useTimeEntries,
   useAssignedMissions,
   useActiveMissions,
+  useTransverseProjects,
   useUpsertTimeEntry,
   getWeekStart,
   getWeekDays,
@@ -32,13 +33,6 @@ const INTERNAL_CATEGORIES: InternalCategory[] = [
   "Recrutement",
 ];
 
-// Projets transverses : pour l'instant en dur, à terme alimenté depuis Notion.
-// Stockés côté DB via internal_category (en attendant la table dédiée).
-const TRANSVERSE_PROJECTS: InternalCategory[] = [
-  "Développement SaaS Releaf",
-  "Développement site web",
-];
-
 // Propositions commerciales : à brancher sur Notion. Vide pour l'instant.
 const COMMERCIAL_PROPOSALS: InternalCategory[] = [];
 
@@ -50,9 +44,9 @@ const MAX_HOURS_PER_WEEK = 35;
 type GridCell = { hours: number; comment: string };
 type GridState = Record<string, Record<string, GridCell>>;
 
-function buildKey(missionId: string | null, category: string | null) {
-  return missionId ? `mission:${missionId}` : `internal:${category}`;
-}
+const missionKey = (id: string) => `mission:${id}`;
+const internalKey = (cat: string) => `internal:${cat}`;
+const transverseKey = (id: string) => `transverse:${id}`;
 
 const ConsultantView = () => {
   const today = new Date();
@@ -63,6 +57,7 @@ const ConsultantView = () => {
   const { data: entries = [], isLoading: loadingEntries } = useTimeEntries(weekStart);
   const { data: baseAssignedMissions = [], isLoading: loadingMissions } = useAssignedMissions();
   const { data: allActiveMissions = [] } = useActiveMissions();
+  const { data: transverseProjects = [] } = useTransverseProjects();
   const upsert = useUpsertTimeEntry();
 
   const [grid, setGrid] = useState<GridState>({});
@@ -108,7 +103,11 @@ const ConsultantView = () => {
   useEffect(() => {
     const newGrid: GridState = {};
     for (const entry of entries) {
-      const key = buildKey(entry.mission_id, entry.internal_category);
+      let key: string | null = null;
+      if (entry.mission_id) key = missionKey(entry.mission_id);
+      else if ((entry as any).transverse_project_id) key = transverseKey((entry as any).transverse_project_id);
+      else if (entry.internal_category) key = internalKey(entry.internal_category);
+      if (!key) continue;
       if (!newGrid[key]) newGrid[key] = {};
       newGrid[key][entry.entry_date] = {
         hours: Number(entry.hours),
@@ -135,10 +134,10 @@ const ConsultantView = () => {
 
   const colTotal = (date: string) => {
     const allKeys = [
-      ...assignedMissions.map((m: any) => buildKey(m.id, null)),
-      ...INTERNAL_CATEGORIES.map((c) => buildKey(null, c)),
-      ...TRANSVERSE_PROJECTS.map((c) => buildKey(null, c)),
-      ...COMMERCIAL_PROPOSALS.map((c) => buildKey(null, c)),
+      ...assignedMissions.map((m: any) => missionKey(m.id)),
+      ...INTERNAL_CATEGORIES.map((c) => internalKey(c)),
+      ...transverseProjects.map((p: any) => transverseKey(p.id)),
+      ...COMMERCIAL_PROPOSALS.map((c) => internalKey(c)),
     ];
     return allKeys.reduce((sum, k) => sum + (getCell(k, date).hours || 0), 0);
   };
@@ -148,11 +147,17 @@ const ConsultantView = () => {
   const saveGrid = async (opts: { silent?: boolean } = {}) => {
     setSaving(true);
     try {
-      const allRows: { key: string; missionId: string | null; category: InternalCategory | null }[] = [
-        ...assignedMissions.map((m: any) => ({ key: buildKey(m.id, null), missionId: m.id, category: null })),
-        ...INTERNAL_CATEGORIES.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
-        ...TRANSVERSE_PROJECTS.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
-        ...COMMERCIAL_PROPOSALS.map((c) => ({ key: buildKey(null, c), missionId: null, category: c as InternalCategory })),
+      type Row = {
+        key: string;
+        missionId: string | null;
+        category: InternalCategory | null;
+        transverseId: string | null;
+      };
+      const allRows: Row[] = [
+        ...assignedMissions.map((m: any): Row => ({ key: missionKey(m.id), missionId: m.id, category: null, transverseId: null })),
+        ...INTERNAL_CATEGORIES.map((c): Row => ({ key: internalKey(c), missionId: null, category: c, transverseId: null })),
+        ...transverseProjects.map((p: any): Row => ({ key: transverseKey(p.id), missionId: null, category: null, transverseId: p.id })),
+        ...COMMERCIAL_PROPOSALS.map((c): Row => ({ key: internalKey(c), missionId: null, category: c, transverseId: null })),
       ];
 
       await Promise.all(
@@ -161,6 +166,7 @@ const ConsultantView = () => {
             upsert.mutateAsync({
               mission_id: row.missionId,
               internal_category: row.category,
+              transverse_project_id: row.transverseId,
               entry_date: date,
               hours: getCell(row.key, date).hours,
               comment: getCell(row.key, date).comment,
@@ -338,7 +344,7 @@ const ConsultantView = () => {
               </tr>
             ) : (
               assignedMissions.map((m: any) =>
-                renderRow(buildKey(m.id, null), m.name, m.client, m.nature_mission, m.pole)
+                renderRow(missionKey(m.id), m.name, m.client, m.nature_mission, m.pole)
               )
             )}
             <tr>
@@ -359,7 +365,7 @@ const ConsultantView = () => {
               </td>
             </tr>
             {INTERNAL_CATEGORIES.map((cat) =>
-              renderRow(buildKey(null, cat), cat)
+              renderRow(internalKey(cat), cat)
             )}
 
             <tr>
@@ -367,8 +373,16 @@ const ConsultantView = () => {
                 Projets transverses
               </td>
             </tr>
-            {TRANSVERSE_PROJECTS.map((cat) =>
-              renderRow(buildKey(null, cat), cat)
+            {transverseProjects.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-4 text-sm text-muted-foreground text-center">
+                  Aucun projet transverse — synchronise depuis Notion dans Paramètres
+                </td>
+              </tr>
+            ) : (
+              transverseProjects.map((p: any) =>
+                renderRow(transverseKey(p.id), p.name)
+              )
             )}
 
             <tr>
@@ -384,7 +398,7 @@ const ConsultantView = () => {
               </tr>
             ) : (
               COMMERCIAL_PROPOSALS.map((cat) =>
-                renderRow(buildKey(null, cat), cat)
+                renderRow(internalKey(cat), cat)
               )
             )}
           </tbody>

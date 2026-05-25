@@ -53,11 +53,26 @@ export interface Assignment {
   profile?: Profile;
 }
 
+export type TransverseProjectStatus = "active" | "completed" | "on_hold";
+
+export interface TransverseProject {
+  id: string;
+  notion_id: string | null;
+  name: string;
+  status: TransverseProjectStatus;
+  priority: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TimeEntry {
   id: string;
   user_id: string;
   mission_id: string | null;
   internal_category: InternalCategory | null;
+  transverse_project_id: string | null;
   entry_date: string;
   hours: number;
   comment: string | null;
@@ -65,6 +80,7 @@ export interface TimeEntry {
   created_at: string;
   // Joins
   mission?: Mission;
+  transverse_project?: TransverseProject;
   profile?: Profile;
 }
 
@@ -89,8 +105,13 @@ export interface Database {
       };
       time_entries: {
         Row: TimeEntry;
-        Insert: Omit<TimeEntry, "id" | "created_at" | "mission" | "profile">;
+        Insert: Omit<TimeEntry, "id" | "created_at" | "mission" | "transverse_project" | "profile">;
         Update: Partial<Omit<TimeEntry, "id" | "created_at">>;
+      };
+      transverse_projects: {
+        Row: TransverseProject;
+        Insert: Omit<TransverseProject, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<TransverseProject, "id" | "created_at">>;
       };
     };
     Functions: {

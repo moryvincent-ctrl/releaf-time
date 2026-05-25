@@ -24,6 +24,9 @@ function useNotionSettings() {
         database_id: string | null;
         prop_names: Partial<PropNames> | null;
         last_synced_at: string | null;
+        transverse_database_id: string | null;
+        transverse_prop_names: Partial<TransversePropNames> | null;
+        transverse_last_synced_at: string | null;
       };
     },
     // Refetch toutes les 60s pour rafraîchir "Dernière sync"
@@ -86,6 +89,32 @@ const PROP_LABELS: Record<keyof PropNames, string> = {
   nature_mission: "Nature de la mission",
 };
 
+// ─── Projets transverses ─────────────────────────────────────────────────────
+
+type TransversePropNames = {
+  name:       string;
+  status:     string;
+  priority:   string;
+  start_date: string;
+  end_date:   string;
+};
+
+const DEFAULT_TRANSVERSE_PROP_NAMES: TransversePropNames = {
+  name:       "Nom du projet",
+  status:     "État",
+  priority:   "Priorité",
+  start_date: "Date de début",
+  end_date:   "Date de fin",
+};
+
+const TRANSVERSE_PROP_LABELS: Record<keyof TransversePropNames, string> = {
+  name:       "Nom du projet (titre)",
+  status:     "Statut",
+  priority:   "Priorité",
+  start_date: "Date début",
+  end_date:   "Date fin",
+};
+
 // ─── Composant ────────────────────────────────────────────────────────────────
 
 type SyncResult = {
@@ -109,11 +138,21 @@ const Settings = () => {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  // Projets transverses
+  const [transverseDbId, setTransverseDbId] = useState("");
+  const [transversePropNames, setTransversePropNames] = useState<TransversePropNames>(DEFAULT_TRANSVERSE_PROP_NAMES);
+  const [showTransversePropNames, setShowTransversePropNames] = useState(false);
+  const [savingTransverseConfig, setSavingTransverseConfig] = useState(false);
+  const [transverseSyncResult, setTransverseSyncResult] = useState<SyncResult | null>(null);
+  const [transverseSyncing, setTransverseSyncing] = useState(false);
+
   // Pré-remplit les champs depuis la BDD
   useEffect(() => {
     if (notionSettings) {
       setDbId(notionSettings.database_id ?? "");
       setPropNames({ ...DEFAULT_PROP_NAMES, ...(notionSettings.prop_names ?? {}) });
+      setTransverseDbId(notionSettings.transverse_database_id ?? "");
+      setTransversePropNames({ ...DEFAULT_TRANSVERSE_PROP_NAMES, ...(notionSettings.transverse_prop_names ?? {}) });
     }
   }, [notionSettings]);
 
@@ -147,6 +186,32 @@ const Settings = () => {
       setSyncResult({ success: false, synced: 0, skipped: 0, total: 0, warnings: [], error: err.message });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSaveTransverseConfig = async () => {
+    setSavingTransverseConfig(true);
+    const { error } = await supabase
+      .from("notion_settings")
+      .update({ transverse_database_id: transverseDbId, transverse_prop_names: transversePropNames })
+      .eq("id", 1);
+    setSavingTransverseConfig(false);
+    if (!error) queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
+  };
+
+  const handleTransverseSync = async () => {
+    setTransverseSyncing(true);
+    setTransverseSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-notion-transverse");
+      if (error) throw error;
+      setTransverseSyncResult(data as SyncResult);
+      queryClient.invalidateQueries({ queryKey: ["transverse_projects"] });
+      queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
+    } catch (err: any) {
+      setTransverseSyncResult({ success: false, synced: 0, skipped: 0, total: 0, warnings: [], error: err.message });
+    } finally {
+      setTransverseSyncing(false);
     }
   };
 
@@ -286,6 +351,113 @@ const Settings = () => {
           <br />
           <strong>Stocké en propre :</strong> saisies de temps, calculs, alertes budget.
         </div>
+      </div>
+
+      {/* ── Notion Sync — Projets transverses ── */}
+      <div className="bg-card rounded-lg border border-border p-6 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 size={20} className="text-secondary" />
+          <h3 className="font-heading font-semibold text-primary">Synchronisation Notion — Projets transverses</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Base Notion qui alimente la section <em>Projets transverses</em> dans la grille de saisie.
+          Utilise la même clé API Notion que pour les missions.
+        </p>
+
+        <div className="mb-4">
+          <label className="label-uppercase block mb-1.5">Database ID</label>
+          <Input
+            value={transverseDbId}
+            onChange={(e) => setTransverseDbId(e.target.value)}
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="bg-card border-input max-w-md"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Pense à <strong>partager la base Notion</strong> avec l'intégration via le menu <code>•••</code> → <code>Connections</code>.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowTransversePropNames((v) => !v)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4 transition-colors"
+        >
+          {showTransversePropNames ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          Noms des colonnes dans Notion
+        </button>
+
+        {showTransversePropNames && (
+          <div className="grid grid-cols-3 gap-3 mb-4 p-4 bg-muted/40 rounded-lg border border-border">
+            <p className="col-span-3 text-xs text-muted-foreground mb-1">
+              Renseigne le nom exact de chaque colonne tel qu'il apparaît dans ta base Notion.
+            </p>
+            {(Object.keys(DEFAULT_TRANSVERSE_PROP_NAMES) as (keyof TransversePropNames)[]).map((key) => (
+              <div key={key}>
+                <label className="label-uppercase block mb-1">{TRANSVERSE_PROP_LABELS[key]}</label>
+                <Input
+                  value={transversePropNames[key]}
+                  onChange={(e) => setTransversePropNames((prev) => ({ ...prev, [key]: e.target.value }))}
+                  className="bg-card border-input text-sm h-8"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mb-4">
+          <Button
+            variant="outline"
+            className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+            onClick={handleSaveTransverseConfig}
+            disabled={savingTransverseConfig}
+          >
+            {savingTransverseConfig
+              ? <Loader2 size={14} className="mr-2 animate-spin" />
+              : <Save size={14} className="mr-2" />
+            }
+            Enregistrer
+          </Button>
+
+          <Button
+            className="rounded-lg"
+            onClick={handleTransverseSync}
+            disabled={transverseSyncing || !transverseDbId}
+          >
+            {transverseSyncing
+              ? <><Loader2 size={14} className="mr-2 animate-spin" />Synchronisation…</>
+              : <><RefreshCw size={14} className="mr-2" />Synchroniser depuis Notion</>
+            }
+          </Button>
+
+          {notionSettings?.transverse_last_synced_at && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              Dernière sync : {formatDistanceToNow(new Date(notionSettings.transverse_last_synced_at), { addSuffix: true, locale: fr })}
+            </span>
+          )}
+        </div>
+
+        {transverseSyncResult && (
+          <div className={`p-4 rounded-lg text-sm ${transverseSyncResult.success ? "bg-secondary/10" : "bg-destructive/10"}`}>
+            {transverseSyncResult.success ? (
+              <div className="flex items-start gap-2">
+                <CheckCircle size={16} className="text-secondary mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-medium text-secondary">
+                    Synchronisation réussie — {transverseSyncResult.synced} projet{transverseSyncResult.synced > 1 ? "s" : ""} importé{transverseSyncResult.synced > 1 ? "s" : ""}
+                  </span>
+                  {transverseSyncResult.skipped > 0 && (
+                    <p className="text-muted-foreground mt-1">{transverseSyncResult.skipped} entrée(s) ignorée(s) (titre vide)</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-destructive mt-0.5 shrink-0" />
+                <span className="text-destructive">{transverseSyncResult.error ?? "Erreur inconnue"}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Gestion utilisateurs ── */}

@@ -117,10 +117,27 @@ export function useActiveMissions() {
   });
 }
 
-// Upsert : crée ou met à jour une saisie (mission ou interne)
+// Projets transverses actifs (alimentés depuis Notion via sync-notion-transverse)
+export function useTransverseProjects() {
+  return useQuery({
+    queryKey: ["transverse_projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transverse_projects")
+        .select("id, name, status")
+        .eq("status", "active")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// Upsert : crée ou met à jour une saisie (mission, catégorie interne, ou projet transverse)
 type UpsertPayload = {
   mission_id?: string | null;
   internal_category?: InternalCategory | null;
+  transverse_project_id?: string | null;
   entry_date: string;
   hours: number;
   comment?: string;
@@ -134,9 +151,14 @@ export function useUpsertTimeEntry() {
   return useMutation({
     mutationFn: async (payload: UpsertPayload) => {
       // Cherche si une entrée existe déjà pour ce user/date/source
-      const matchFilter = payload.mission_id
-        ? { user_id: user!.id, entry_date: payload.entry_date, mission_id: payload.mission_id }
-        : { user_id: user!.id, entry_date: payload.entry_date, internal_category: payload.internal_category };
+      let matchFilter: Record<string, any>;
+      if (payload.mission_id) {
+        matchFilter = { user_id: user!.id, entry_date: payload.entry_date, mission_id: payload.mission_id };
+      } else if (payload.transverse_project_id) {
+        matchFilter = { user_id: user!.id, entry_date: payload.entry_date, transverse_project_id: payload.transverse_project_id };
+      } else {
+        matchFilter = { user_id: user!.id, entry_date: payload.entry_date, internal_category: payload.internal_category };
+      }
 
       const { data: existing } = await supabase
         .from("time_entries")
@@ -158,6 +180,7 @@ export function useUpsertTimeEntry() {
           user_id: user!.id,
           mission_id: payload.mission_id ?? null,
           internal_category: payload.internal_category ?? null,
+          transverse_project_id: payload.transverse_project_id ?? null,
           entry_date: payload.entry_date,
           hours: payload.hours,
           comment: payload.comment ?? null,
