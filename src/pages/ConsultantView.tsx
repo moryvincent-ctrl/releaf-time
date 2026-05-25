@@ -16,6 +16,9 @@ import {
   useAssignedMissions,
   useActiveMissions,
   useTransverseProjects,
+  useActiveProposals,
+  useMyProposals,
+  useAddUserProposal,
   useUpsertTimeEntry,
   getWeekStart,
   getWeekDays,
@@ -33,9 +36,6 @@ const INTERNAL_CATEGORIES: InternalCategory[] = [
   "Recrutement",
 ];
 
-// Propositions commerciales : à brancher sur Notion. Vide pour l'instant.
-const COMMERCIAL_PROPOSALS: InternalCategory[] = [];
-
 const DAYS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 const MAX_HOURS_PER_DAY = 7;
 const MAX_HOURS_PER_WEEK = 35;
@@ -47,6 +47,7 @@ type GridState = Record<string, Record<string, GridCell>>;
 const missionKey = (id: string) => `mission:${id}`;
 const internalKey = (cat: string) => `internal:${cat}`;
 const transverseKey = (id: string) => `transverse:${id}`;
+const proposalKey = (id: string) => `proposal:${id}`;
 
 const ConsultantView = () => {
   const today = new Date();
@@ -58,6 +59,9 @@ const ConsultantView = () => {
   const { data: baseAssignedMissions = [], isLoading: loadingMissions } = useAssignedMissions();
   const { data: allActiveMissions = [] } = useActiveMissions();
   const { data: transverseProjects = [] } = useTransverseProjects();
+  const { data: myProposals = [] } = useMyProposals();
+  const { data: allActiveProposals = [] } = useActiveProposals();
+  const addUserProposal = useAddUserProposal();
   const upsert = useUpsertTimeEntry();
 
   const [grid, setGrid] = useState<GridState>({});
@@ -69,6 +73,10 @@ const ConsultantView = () => {
   const [extraMissionIds, setExtraMissionIds] = useState<Set<string>>(new Set());
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Picker propales
+  const [proposalDialogOpen, setProposalDialogOpen] = useState(false);
+  const [proposalSearch, setProposalSearch] = useState("");
 
   // Combine missions assignées + missions ponctuelles ajoutées
   const assignedMissions = useMemo(() => {
@@ -99,6 +107,21 @@ const ConsultantView = () => {
       });
   }, [assignedMissions, allActiveMissions, search]);
 
+  // Propales disponibles à l'ajout (actives, pas déjà dans la grille du user)
+  const availableProposals = useMemo(() => {
+    const usedIds = new Set(myProposals.map((p: any) => p.id));
+    const q = proposalSearch.trim().toLowerCase();
+    return allActiveProposals
+      .filter((p: any) => !usedIds.has(p.id))
+      .filter((p: any) => {
+        if (!q) return true;
+        return (
+          (p.name ?? "").toLowerCase().includes(q) ||
+          (p.mission_type ?? "").toLowerCase().includes(q)
+        );
+      });
+  }, [myProposals, allActiveProposals, proposalSearch]);
+
   // Initialise la grille depuis les entrées Supabase
   useEffect(() => {
     const newGrid: GridState = {};
@@ -106,6 +129,7 @@ const ConsultantView = () => {
       let key: string | null = null;
       if (entry.mission_id) key = missionKey(entry.mission_id);
       else if ((entry as any).transverse_project_id) key = transverseKey((entry as any).transverse_project_id);
+      else if ((entry as any).proposal_id) key = proposalKey((entry as any).proposal_id);
       else if (entry.internal_category) key = internalKey(entry.internal_category);
       if (!key) continue;
       if (!newGrid[key]) newGrid[key] = {};
@@ -137,7 +161,7 @@ const ConsultantView = () => {
       ...assignedMissions.map((m: any) => missionKey(m.id)),
       ...INTERNAL_CATEGORIES.map((c) => internalKey(c)),
       ...transverseProjects.map((p: any) => transverseKey(p.id)),
-      ...COMMERCIAL_PROPOSALS.map((c) => internalKey(c)),
+      ...myProposals.map((p: any) => proposalKey(p.id)),
     ];
     return allKeys.reduce((sum, k) => sum + (getCell(k, date).hours || 0), 0);
   };
@@ -152,12 +176,13 @@ const ConsultantView = () => {
         missionId: string | null;
         category: InternalCategory | null;
         transverseId: string | null;
+        proposalId: string | null;
       };
       const allRows: Row[] = [
-        ...assignedMissions.map((m: any): Row => ({ key: missionKey(m.id), missionId: m.id, category: null, transverseId: null })),
-        ...INTERNAL_CATEGORIES.map((c): Row => ({ key: internalKey(c), missionId: null, category: c, transverseId: null })),
-        ...transverseProjects.map((p: any): Row => ({ key: transverseKey(p.id), missionId: null, category: null, transverseId: p.id })),
-        ...COMMERCIAL_PROPOSALS.map((c): Row => ({ key: internalKey(c), missionId: null, category: c, transverseId: null })),
+        ...assignedMissions.map((m: any): Row => ({ key: missionKey(m.id), missionId: m.id, category: null, transverseId: null, proposalId: null })),
+        ...INTERNAL_CATEGORIES.map((c): Row => ({ key: internalKey(c), missionId: null, category: c, transverseId: null, proposalId: null })),
+        ...transverseProjects.map((p: any): Row => ({ key: transverseKey(p.id), missionId: null, category: null, transverseId: p.id, proposalId: null })),
+        ...myProposals.map((p: any): Row => ({ key: proposalKey(p.id), missionId: null, category: null, transverseId: null, proposalId: p.id })),
       ];
 
       await Promise.all(
@@ -167,6 +192,7 @@ const ConsultantView = () => {
               mission_id: row.missionId,
               internal_category: row.category,
               transverse_project_id: row.transverseId,
+              proposal_id: row.proposalId,
               entry_date: date,
               hours: getCell(row.key, date).hours,
               comment: getCell(row.key, date).comment,
@@ -390,17 +416,29 @@ const ConsultantView = () => {
                 Propositions commerciales
               </td>
             </tr>
-            {COMMERCIAL_PROPOSALS.length === 0 ? (
+            {myProposals.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-4 text-sm text-muted-foreground text-center">
-                  Aucune proposition commerciale — bientôt connecté à Notion
+                  Aucune propale ajoutée — clique sur "Ajouter une propale" ci-dessous
                 </td>
               </tr>
             ) : (
-              COMMERCIAL_PROPOSALS.map((cat) =>
-                renderRow(internalKey(cat), cat)
+              myProposals.map((p: any) =>
+                renderRow(proposalKey(p.id), p.name, undefined, p.mission_type ?? undefined)
               )
             )}
+            <tr>
+              <td colSpan={7} className="px-4 py-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
+                  onClick={() => { setProposalSearch(""); setProposalDialogOpen(true); }}
+                >
+                  <Plus size={12} className="mr-1" /> Ajouter une propale
+                </Button>
+              </td>
+            </tr>
           </tbody>
 
           <tfoot>
@@ -457,6 +495,52 @@ const ConsultantView = () => {
                   <div className="text-sm font-medium text-foreground">{m.client}</div>
                   <div className="text-xs text-muted-foreground">
                     {m.name}{m.nature_mission ? ` · ${m.nature_mission}` : ""}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={proposalDialogOpen} onOpenChange={setProposalDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ajouter une propale</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Sélectionne une propale en cours pour saisir du temps dessus. Elle restera sur ta grille jusqu'à ce qu'elle passe au statut "Gagné" côté HubSpot.
+          </p>
+          <Input
+            autoFocus
+            placeholder="Rechercher par nom de prospect ou type de mission…"
+            value={proposalSearch}
+            onChange={(e) => setProposalSearch(e.target.value)}
+            className="mt-2"
+          />
+          <div className="max-h-72 overflow-auto border border-border rounded-md divide-y divide-border">
+            {availableProposals.length === 0 ? (
+              <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                Aucune propale disponible.
+              </div>
+            ) : (
+              availableProposals.map((p: any) => (
+                <button
+                  key={p.id}
+                  onClick={async () => {
+                    try {
+                      await addUserProposal.mutateAsync(p.id);
+                      setProposalDialogOpen(false);
+                      toast.success(`"${p.name}" ajoutée à la grille`);
+                    } catch {
+                      toast.error("Erreur lors de l'ajout");
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="text-sm font-medium text-foreground">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {p.mission_type ?? "—"}{p.stage ? ` · ${p.stage}` : ""}
                   </div>
                 </button>
               ))

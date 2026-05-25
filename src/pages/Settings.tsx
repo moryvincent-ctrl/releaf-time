@@ -27,6 +27,8 @@ function useNotionSettings() {
         transverse_database_id: string | null;
         transverse_prop_names: Partial<TransversePropNames> | null;
         transverse_last_synced_at: string | null;
+        proposals_endpoint_url: string | null;
+        proposals_last_synced_at: string | null;
       };
     },
     // Refetch toutes les 60s pour rafraîchir "Dernière sync"
@@ -146,6 +148,12 @@ const Settings = () => {
   const [transverseSyncResult, setTransverseSyncResult] = useState<SyncResult | null>(null);
   const [transverseSyncing, setTransverseSyncing] = useState(false);
 
+  // Propales HubSpot
+  const [proposalsUrl, setProposalsUrl] = useState("");
+  const [savingProposalsConfig, setSavingProposalsConfig] = useState(false);
+  const [proposalsSyncResult, setProposalsSyncResult] = useState<{ success: boolean; synced?: number; closed?: number; skipped?: number; total?: number; error?: string } | null>(null);
+  const [proposalsSyncing, setProposalsSyncing] = useState(false);
+
   // Pré-remplit les champs depuis la BDD
   useEffect(() => {
     if (notionSettings) {
@@ -153,6 +161,7 @@ const Settings = () => {
       setPropNames({ ...DEFAULT_PROP_NAMES, ...(notionSettings.prop_names ?? {}) });
       setTransverseDbId(notionSettings.transverse_database_id ?? "");
       setTransversePropNames({ ...DEFAULT_TRANSVERSE_PROP_NAMES, ...(notionSettings.transverse_prop_names ?? {}) });
+      setProposalsUrl(notionSettings.proposals_endpoint_url ?? "");
     }
   }, [notionSettings]);
 
@@ -212,6 +221,32 @@ const Settings = () => {
       setTransverseSyncResult({ success: false, synced: 0, skipped: 0, total: 0, warnings: [], error: err.message });
     } finally {
       setTransverseSyncing(false);
+    }
+  };
+
+  const handleSaveProposalsConfig = async () => {
+    setSavingProposalsConfig(true);
+    const { error } = await supabase
+      .from("notion_settings")
+      .update({ proposals_endpoint_url: proposalsUrl })
+      .eq("id", 1);
+    setSavingProposalsConfig(false);
+    if (!error) queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
+  };
+
+  const handleProposalsSync = async () => {
+    setProposalsSyncing(true);
+    setProposalsSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-hubspot-deals");
+      if (error) throw error;
+      setProposalsSyncResult(data);
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      queryClient.invalidateQueries({ queryKey: ["notion_settings"] });
+    } catch (err: any) {
+      setProposalsSyncResult({ success: false, error: err.message });
+    } finally {
+      setProposalsSyncing(false);
     }
   };
 
@@ -454,6 +489,87 @@ const Settings = () => {
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="text-destructive mt-0.5 shrink-0" />
                 <span className="text-destructive">{transverseSyncResult.error ?? "Erreur inconnue"}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── HubSpot Sync — Propositions commerciales ── */}
+      <div className="bg-card rounded-lg border border-border p-6 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 size={20} className="text-secondary" />
+          <h3 className="font-heading font-semibold text-primary">Synchronisation HubSpot — Propositions commerciales</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Endpoint REST de l'app HubSpot Dashboard qui expose les propales en cours.
+          Le token Bearer est stocké côté serveur (Edge Function secret <code className="font-mono">HUBSPOT_DASHBOARD_TOKEN</code>).
+          Sync auto toutes les 10 min.
+        </p>
+
+        <div className="mb-4">
+          <label className="label-uppercase block mb-1.5">URL de l'endpoint</label>
+          <Input
+            value={proposalsUrl}
+            onChange={(e) => setProposalsUrl(e.target.value)}
+            placeholder="https://hubspot-dashboard-xxx.onrender.com/api/deals/full"
+            className="bg-card border-input max-w-2xl"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 mb-4">
+          <Button
+            variant="outline"
+            className="rounded-lg border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+            onClick={handleSaveProposalsConfig}
+            disabled={savingProposalsConfig}
+          >
+            {savingProposalsConfig
+              ? <Loader2 size={14} className="mr-2 animate-spin" />
+              : <Save size={14} className="mr-2" />
+            }
+            Enregistrer
+          </Button>
+
+          <Button
+            className="rounded-lg"
+            onClick={handleProposalsSync}
+            disabled={proposalsSyncing || !proposalsUrl}
+          >
+            {proposalsSyncing
+              ? <><Loader2 size={14} className="mr-2 animate-spin" />Synchronisation…</>
+              : <><RefreshCw size={14} className="mr-2" />Synchroniser depuis HubSpot</>
+            }
+          </Button>
+
+          {notionSettings?.proposals_last_synced_at && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              Dernière sync : {formatDistanceToNow(new Date(notionSettings.proposals_last_synced_at), { addSuffix: true, locale: fr })}
+            </span>
+          )}
+        </div>
+
+        {proposalsSyncResult && (
+          <div className={`p-4 rounded-lg text-sm ${proposalsSyncResult.success ? "bg-secondary/10" : "bg-destructive/10"}`}>
+            {proposalsSyncResult.success ? (
+              <div className="flex items-start gap-2">
+                <CheckCircle size={16} className="text-secondary mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-medium text-secondary">
+                    Synchronisation réussie — {proposalsSyncResult.synced} propale{(proposalsSyncResult.synced ?? 0) > 1 ? "s" : ""} active{(proposalsSyncResult.synced ?? 0) > 1 ? "s" : ""}
+                  </span>
+                  {(proposalsSyncResult.closed ?? 0) > 0 && (
+                    <p className="text-muted-foreground mt-1">{proposalsSyncResult.closed} propale(s) marquée(s) Gagné/Perdu (retirée(s) de la grille)</p>
+                  )}
+                  {(proposalsSyncResult.skipped ?? 0) > 0 && (
+                    <p className="text-muted-foreground mt-1">{proposalsSyncResult.skipped} entrée(s) ignorée(s)</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-destructive mt-0.5 shrink-0" />
+                <span className="text-destructive">{proposalsSyncResult.error ?? "Erreur inconnue"}</span>
               </div>
             )}
           </div>

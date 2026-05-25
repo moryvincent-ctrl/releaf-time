@@ -67,12 +67,36 @@ export interface TransverseProject {
   updated_at: string;
 }
 
+export type ProposalStatus = "active" | "closed";
+
+export interface Proposal {
+  id: string;
+  hubspot_id: string;
+  name: string;                // nom prospect
+  mission_type: string | null;
+  stage: string | null;
+  amount: number | null;
+  probability: number | null;
+  close_date: string | null;
+  status: ProposalStatus;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProposal {
+  user_id: string;
+  proposal_id: string;
+  added_at: string;
+}
+
 export interface TimeEntry {
   id: string;
   user_id: string;
   mission_id: string | null;
   internal_category: InternalCategory | null;
   transverse_project_id: string | null;
+  proposal_id: string | null;
   entry_date: string;
   hours: number;
   comment: string | null;
@@ -81,6 +105,7 @@ export interface TimeEntry {
   // Joins
   mission?: Mission;
   transverse_project?: TransverseProject;
+  proposal?: Proposal;
   profile?: Profile;
 }
 
@@ -105,13 +130,23 @@ export interface Database {
       };
       time_entries: {
         Row: TimeEntry;
-        Insert: Omit<TimeEntry, "id" | "created_at" | "mission" | "transverse_project" | "profile">;
+        Insert: Omit<TimeEntry, "id" | "created_at" | "mission" | "transverse_project" | "proposal" | "profile">;
         Update: Partial<Omit<TimeEntry, "id" | "created_at">>;
       };
       transverse_projects: {
         Row: TransverseProject;
         Insert: Omit<TransverseProject, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<TransverseProject, "id" | "created_at">>;
+      };
+      proposals: {
+        Row: Proposal;
+        Insert: Omit<Proposal, "id" | "created_at" | "updated_at" | "last_seen_at">;
+        Update: Partial<Omit<Proposal, "id" | "created_at">>;
+      };
+      user_proposals: {
+        Row: UserProposal;
+        Insert: Omit<UserProposal, "added_at">;
+        Update: Partial<Omit<UserProposal, "user_id" | "proposal_id">>;
       };
     };
     Functions: {

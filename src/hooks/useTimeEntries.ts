@@ -133,11 +133,86 @@ export function useTransverseProjects() {
   });
 }
 
-// Upsert : crée ou met à jour une saisie (mission, catégorie interne, ou projet transverse)
+// ─── Propales ────────────────────────────────────────────────────────────────
+
+// Toutes les propales actives (pour le picker "Ajouter une propale")
+export function useActiveProposals() {
+  return useQuery({
+    queryKey: ["proposals", "active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proposals")
+        .select("id, name, mission_type, stage, status")
+        .eq("status", "active")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// Propales du user courant (ajoutées via user_proposals OU avec des time_entries),
+// filtrées sur les actives uniquement (les 'closed' sortent automatiquement de la grille).
+export function useMyProposals() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["proposals", "mine", user?.id],
+    queryFn: async () => {
+      // 1. Propales explicitement ajoutées par l'user
+      const { data: added, error: e1 } = await supabase
+        .from("user_proposals")
+        .select("proposal:proposals(id, name, mission_type, stage, status)")
+        .eq("user_id", user!.id);
+      if (e1) throw e1;
+
+      // 2. Propales sur lesquelles l'user a saisi du temps (sans avoir cliqué sur "Ajouter")
+      const { data: viaEntries, error: e2 } = await supabase
+        .from("time_entries")
+        .select("proposal:proposals(id, name, mission_type, stage, status)")
+        .eq("user_id", user!.id)
+        .not("proposal_id", "is", null);
+      if (e2) throw e2;
+
+      const byId = new Map<string, any>();
+      for (const row of added ?? []) {
+        const p: any = row.proposal;
+        if (p && p.status === "active") byId.set(p.id, p);
+      }
+      for (const row of viaEntries ?? []) {
+        const p: any = row.proposal;
+        if (p && p.status === "active" && !byId.has(p.id)) byId.set(p.id, p);
+      }
+      return Array.from(byId.values());
+    },
+    enabled: !!user,
+  });
+}
+
+// Ajout / retrait d'une propale par le user
+export function useAddUserProposal() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (proposalId: string) => {
+      const { error } = await supabase
+        .from("user_proposals")
+        .upsert({ user_id: user!.id, proposal_id: proposalId }, { onConflict: "user_id,proposal_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["proposals", "mine", user?.id] });
+    },
+  });
+}
+
+// Upsert : crée ou met à jour une saisie (mission, catégorie interne, projet transverse, ou propale)
 type UpsertPayload = {
   mission_id?: string | null;
   internal_category?: InternalCategory | null;
   transverse_project_id?: string | null;
+  proposal_id?: string | null;
   entry_date: string;
   hours: number;
   comment?: string;
@@ -156,6 +231,8 @@ export function useUpsertTimeEntry() {
         matchFilter = { user_id: user!.id, entry_date: payload.entry_date, mission_id: payload.mission_id };
       } else if (payload.transverse_project_id) {
         matchFilter = { user_id: user!.id, entry_date: payload.entry_date, transverse_project_id: payload.transverse_project_id };
+      } else if (payload.proposal_id) {
+        matchFilter = { user_id: user!.id, entry_date: payload.entry_date, proposal_id: payload.proposal_id };
       } else {
         matchFilter = { user_id: user!.id, entry_date: payload.entry_date, internal_category: payload.internal_category };
       }
@@ -181,6 +258,7 @@ export function useUpsertTimeEntry() {
           mission_id: payload.mission_id ?? null,
           internal_category: payload.internal_category ?? null,
           transverse_project_id: payload.transverse_project_id ?? null,
+          proposal_id: payload.proposal_id ?? null,
           entry_date: payload.entry_date,
           hours: payload.hours,
           comment: payload.comment ?? null,
