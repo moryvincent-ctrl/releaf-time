@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Briefcase, Activity, Loader2 } from "lucide-react";
+import { Clock, Briefcase, Activity, Loader2, Layers, FileText, ChevronDown } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PeriodSelector, PERIOD_LABELS_THIS, defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 import { useConsultantDashboard } from "@/hooks/useConsultantDashboard";
 
+const PROPOSAL_BG = "hsl(var(--warning))";
+
 const ConsultantDashboard = () => {
   const [period, setPeriod] = useState<PeriodValue>(defaultPeriodValue("week"));
+  const [completedOpen, setCompletedOpen] = useState(false);
   const periodLabel = PERIOD_LABELS_THIS[period.period];
   const { data, isLoading } = useConsultantDashboard(period);
 
@@ -22,6 +26,12 @@ const ConsultantDashboard = () => {
     );
   }
 
+  // Segments largeur barre — empilés sans dépasser 100%
+  const segClient = Math.min(data.chargeClient, 100);
+  const segTransverse = Math.min(data.chargeTransverse, Math.max(0, 100 - segClient));
+  const segProposal = Math.min(data.chargeProposal, Math.max(0, 100 - segClient - segTransverse));
+  const segInternal = Math.min(data.chargeInternal, Math.max(0, 100 - segClient - segTransverse - segProposal));
+
   return (
     <AppLayout role="consultant">
       <div className="flex items-center justify-between mb-6">
@@ -29,7 +39,7 @@ const ConsultantDashboard = () => {
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${data.hoursThisWeek}h`} />
         <KpiCard
           icon={<Activity size={18} />}
@@ -40,6 +50,11 @@ const ConsultantDashboard = () => {
           icon={<Activity size={18} />}
           label={`Charge interne (${data.chargeInternal}%)`}
           value={`${data.internalHoursThisWeek}h`}
+        />
+        <KpiCard
+          icon={<FileText size={18} />}
+          label={`Charge propales (${data.chargeProposal}%)`}
+          value={`${data.proposalHoursThisWeek}h`}
         />
         <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${data.activeMissionsCount}`} />
       </div>
@@ -53,18 +68,33 @@ const ConsultantDashboard = () => {
         <div className="flex h-3 rounded-full overflow-hidden bg-muted">
           <div
             className="bg-secondary"
-            style={{ width: `${Math.min(data.chargeClient, 100)}%` }}
+            style={{ width: `${segClient}%` }}
             title={`Client ${data.clientHoursThisWeek}h (${data.chargeClient}%)`}
           />
           <div
+            className="bg-ring"
+            style={{ width: `${segTransverse}%` }}
+            title={`Projets transverses ${data.transverseHoursThisWeek}h (${data.chargeTransverse}%)`}
+          />
+          <div
+            style={{ width: `${segProposal}%`, backgroundColor: PROPOSAL_BG }}
+            title={`Propales ${data.proposalHoursThisWeek}h (${data.chargeProposal}%)`}
+          />
+          <div
             className="bg-primary"
-            style={{ width: `${Math.min(data.chargeInternal, Math.max(0, 100 - data.chargeClient))}%` }}
+            style={{ width: `${segInternal}%` }}
             title={`Interne ${data.internalHoursThisWeek}h (${data.chargeInternal}%)`}
           />
         </div>
-        <div className="flex gap-4 mt-2 text-xs">
+        <div className="flex flex-wrap gap-4 mt-2 text-xs">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-secondary" /> Client {data.clientHoursThisWeek}h
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-ring" /> Projets transverses {data.transverseHoursThisWeek}h
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: PROPOSAL_BG }} /> Propales {data.proposalHoursThisWeek}h
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Interne {data.internalHoursThisWeek}h
@@ -134,46 +164,103 @@ const ConsultantDashboard = () => {
         </div>
       </div>
 
-      {/* Missions terminées */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden mt-6">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="label-uppercase">Missions terminées</h3>
-          <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
-        </div>
-        {data.missionsCompleted.length === 0 ? (
-          <div className="px-4 py-8 text-sm text-muted-foreground text-center">
-            Aucune mission terminée pour le moment.
+      {/* Projets transverses + Propales */}
+      <div className="grid grid-cols-2 gap-6 mt-6">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Layers size={14} className="text-muted-foreground" />
+            <h3 className="label-uppercase">Projets transverses</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.transverseProjects.length}</span>
           </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {data.missionsCompleted.map((m) => (
-              <Link
-                key={m.id}
-                to={`/missions/${m.id}`}
-                className="block px-4 py-3 hover:bg-muted/40 transition-colors"
-              >
-                <div className="flex justify-between items-start mb-1">
+          {data.transverseProjects.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucun projet transverse pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.transverseProjects.map((p) => (
+                <div key={p.id} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <FileText size={14} className="text-muted-foreground" />
+            <h3 className="label-uppercase">Propales</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.proposals.length}</span>
+          </div>
+          {data.proposals.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucune propale pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.proposals.map((p) => (
+                <div key={p.id} className="px-4 py-3 flex justify-between items-center">
                   <div>
-                    <div className="text-sm font-medium">{m.client}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                    <div className="text-sm font-medium">{p.name}</div>
+                    {p.mission_type && (
+                      <div className="text-xs text-muted-foreground">{p.mission_type}</div>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Missions terminées (repliable, fermé par défaut) */}
+      <Collapsible open={completedOpen} onOpenChange={setCompletedOpen} className="bg-card rounded-lg border border-border overflow-hidden mt-6">
+        <CollapsibleTrigger className="w-full px-4 py-3 border-b border-border flex items-center justify-between hover:bg-muted/40 transition-colors data-[state=closed]:border-b-0">
+          <h3 className="label-uppercase">Missions terminées</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
+            <ChevronDown size={16} className={`text-muted-foreground transition-transform ${completedOpen ? "rotate-180" : ""}`} />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          {data.missionsCompleted.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucune mission terminée pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.missionsCompleted.map((m) => (
+                <Link
+                  key={m.id}
+                  to={`/missions/${m.id}`}
+                  className="block px-4 py-3 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <div className="text-sm font-medium">{m.client}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {m.project}{m.nature ? ` · ${m.nature}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {m.consumed}j / {m.budgetDays}j ({m.budget}%)
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                        Terminé
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {m.consumed}j / {m.budgetDays}j ({m.budget}%)
-                    </span>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                      Terminé
-                    </span>
-                  </div>
-                </div>
-                <BudgetBar percent={Math.min(m.budget, 100)} />
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+                  <BudgetBar percent={Math.min(m.budget, 100)} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </AppLayout>
   );
 };

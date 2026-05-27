@@ -85,7 +85,7 @@ export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("
       // ── Saisies de la plage (du début de l'historique à la fin de la période courante)
       const { data: entries, error: e1 } = await supabase
         .from("time_entries")
-        .select("hours, entry_date, mission_id, internal_category")
+        .select("hours, entry_date, mission_id, internal_category, transverse_project_id, proposal_id")
         .eq("user_id", user!.id)
         .gte("entry_date", earliestStr)
         .lte("entry_date", fetchUntil);
@@ -134,19 +134,26 @@ export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("
         }
       }
 
-      // ── KPIs sur la période courante
+      // ── KPIs sur la période courante (4 sources : client / transverse / propale / interne)
       const periodEntries = (entries ?? []).filter(
         (e: any) => e.entry_date >= start && e.entry_date <= end,
       );
+      const sumWhere = (pred: (e: any) => boolean) =>
+        periodEntries.filter(pred).reduce((s: number, e: any) => s + Number(e.hours), 0);
+
       const hoursThisPeriod = periodEntries.reduce((s: number, e: any) => s + Number(e.hours), 0);
-      const clientHoursThisPeriod = periodEntries
-        .filter((e: any) => e.mission_id)
-        .reduce((s: number, e: any) => s + Number(e.hours), 0);
-      const internalHoursThisPeriod = hoursThisPeriod - clientHoursThisPeriod;
+      const clientHoursThisPeriod    = sumWhere((e) => !!e.mission_id);
+      const transverseHoursThisPeriod = sumWhere((e) => !!e.transverse_project_id);
+      const proposalHoursThisPeriod  = sumWhere((e) => !!e.proposal_id);
+      const internalHoursThisPeriod  = sumWhere((e) => !!e.internal_category);
+
       const refHours = referenceHours(period, start, end);
-      const charge = refHours > 0 ? Math.round((hoursThisPeriod / refHours) * 100) : 0;
-      const chargeClient = refHours > 0 ? Math.round((clientHoursThisPeriod / refHours) * 100) : 0;
-      const chargeInternal = refHours > 0 ? Math.round((internalHoursThisPeriod / refHours) * 100) : 0;
+      const pct = (h: number) => (refHours > 0 ? Math.round((h / refHours) * 100) : 0);
+      const charge = pct(hoursThisPeriod);
+      const chargeClient = pct(clientHoursThisPeriod);
+      const chargeTransverse = pct(transverseHoursThisPeriod);
+      const chargeProposal = pct(proposalHoursThisPeriod);
+      const chargeInternal = pct(internalHoursThisPeriod);
 
       // ── Historique récent : agrège par bucket
       const byBucket = new Map<string, { hours: number; missions: Set<string> }>();
@@ -196,19 +203,109 @@ export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("
         formatMission(m, "Terminé"),
       );
 
+      // ── Projets transverses du user (assignés OU avec des time_entries)
+      const { data: tAssignments, error: e4 } = await supabase
+        .from("transverse_project_assignments")
+        .select("transverse_project_id")
+        .eq("user_id", user!.id);
+      if (e4) throw e4;
+      const tEntryProjects = (entries ?? [])
+        .map((e: any) => e.transverse_project_id)
+        .filter(Boolean) as string[];
+      const tIds = Array.from(new Set([
+        ...((tAssignments ?? []).map((a: any) => a.transverse_project_id) as string[]),
+        ...tEntryProjects,
+      ]));
+
+      let transverseProjects: { id: string; name: string; hours: number }[] = [];
+      if (tIds.length > 0) {
+        const { data: tProjects, error: e5 } = await supabase
+          .from("transverse_projects")
+          .select("id, name, status")
+          .in("id", tIds)
+          .eq("status", "active");
+        if (e5) throw e5;
+
+        // Heures totales par projet transverse pour ce user (sur toute l'histoire)
+        const { data: tHours, error: e6 } = await supabase
+          .from("time_entries")
+          .select("transverse_project_id, hours")
+          .eq("user_id", user!.id)
+          .in("transverse_project_id", tIds);
+        if (e6) throw e6;
+        const hoursByT = new Map<string, number>();
+        for (const e of tHours ?? []) {
+          const key = e.transverse_project_id as string;
+          hoursByT.set(key, (hoursByT.get(key) ?? 0) + Number(e.hours));
+        }
+        transverseProjects = (tProjects ?? []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          hours: Math.round((hoursByT.get(p.id) ?? 0) * 10) / 10,
+        })).sort((a, b) => b.hours - a.hours);
+      }
+
+      // ── Propales du user (ajoutées OU avec des time_entries)
+      const { data: pAdded, error: e7 } = await supabase
+        .from("user_proposals")
+        .select("proposal_id")
+        .eq("user_id", user!.id);
+      if (e7) throw e7;
+      const pEntryIds = (entries ?? [])
+        .map((e: any) => e.proposal_id)
+        .filter(Boolean) as string[];
+      const pIds = Array.from(new Set([
+        ...((pAdded ?? []).map((r: any) => r.proposal_id) as string[]),
+        ...pEntryIds,
+      ]));
+
+      let proposals: { id: string; name: string; mission_type: string | null; hours: number }[] = [];
+      if (pIds.length > 0) {
+        const { data: pList, error: e8 } = await supabase
+          .from("proposals")
+          .select("id, name, mission_type, status")
+          .in("id", pIds)
+          .eq("status", "active");
+        if (e8) throw e8;
+
+        const { data: pHoursRows, error: e9 } = await supabase
+          .from("time_entries")
+          .select("proposal_id, hours")
+          .eq("user_id", user!.id)
+          .in("proposal_id", pIds);
+        if (e9) throw e9;
+        const hoursByP = new Map<string, number>();
+        for (const e of pHoursRows ?? []) {
+          const key = e.proposal_id as string;
+          hoursByP.set(key, (hoursByP.get(key) ?? 0) + Number(e.hours));
+        }
+        proposals = (pList ?? []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          mission_type: p.mission_type ?? null,
+          hours: Math.round((hoursByP.get(p.id) ?? 0) * 10) / 10,
+        })).sort((a, b) => b.hours - a.hours);
+      }
+
       return {
         period,
         hoursThisWeek: Math.round(hoursThisPeriod * 10) / 10,
         clientHoursThisWeek: Math.round(clientHoursThisPeriod * 10) / 10,
+        transverseHoursThisWeek: Math.round(transverseHoursThisPeriod * 10) / 10,
+        proposalHoursThisWeek: Math.round(proposalHoursThisPeriod * 10) / 10,
         internalHoursThisWeek: Math.round(internalHoursThisPeriod * 10) / 10,
         activeMissionsCount: activeMissions.length,
         charge,
         chargeClient,
+        chargeTransverse,
+        chargeProposal,
         chargeInternal,
         weeklyBase: refHours,
         recentWeeks: recentBuckets, // garde le nom pour compat UI
         missions,
         missionsCompleted,
+        transverseProjects,
+        proposals,
       };
     },
     enabled: !!user,

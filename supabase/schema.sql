@@ -57,6 +57,9 @@ create table public.time_entries (
   comment           text,
   week_start        date not null,
   created_at        timestamptz not null default now(),
+  -- Baseline : une saisie est soit liée à une mission, soit à une catégorie interne.
+  -- Cette contrainte est étendue ensuite par les migrations transverse_projects.sql, proposals.sql
+  -- et fix_time_entry_source.sql pour autoriser aussi transverse_project_id et proposal_id.
   constraint time_entry_source check (
     (mission_id is not null and internal_category is null)
     or

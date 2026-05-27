@@ -10,17 +10,29 @@ import { useAdminStats, useAdminEntries } from "@/hooks/useAdminData";
 import { PeriodSelector, PERIOD_LABELS_THIS, defaultPeriodValue, type PeriodValue } from "@/components/PeriodSelector";
 import { format } from "date-fns";
 
-// Palette pour les catégories internes (distincte du vert client)
+// Couleurs des 4 familles — alignées sur ConsultantDashboard
+const COLOR_CLIENT = "#007F5F";     // secondary
+const COLOR_TRANSVERSE = "#C8A7EE"; // mint-dark / lavande (ring)
+const COLOR_PROPOSAL = "#F59E0B";   // warning orange
+const COLOR_INTERNAL_DEFAULT = "#002E22"; // ink (par défaut pour internal_category)
+
+// Palette pour la pie des catégories internes (réutilisée hors des 4 familles)
 const INTERNAL_COLORS = [
-  "#002E22", // ink
+  COLOR_INTERNAL_DEFAULT,
   "#689B87", // sage
-  "#C8A7EE", // mint-dark (lavande)
   "#F0D7FF", // mint pâle
   "#D4A373", // ocre
   "#E07A5F", // terracotta
   "#8E94A8", // gris bleu
   "#B5838D", // rosé
 ];
+
+function sliceColor(slice: { isClient: boolean; isTransverse: boolean; isProposal: boolean }, fallbackIndex: number): string {
+  if (slice.isClient) return COLOR_CLIENT;
+  if (slice.isTransverse) return COLOR_TRANSVERSE;
+  if (slice.isProposal) return COLOR_PROPOSAL;
+  return INTERNAL_COLORS[fallbackIndex % INTERNAL_COLORS.length];
+}
 
 const AdminDashboard = () => {
   const [filterConsultant, setFilterConsultant] = useState("");
@@ -61,12 +73,12 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Répartition client vs internes sur la période */}
+      {/* Répartition client / transverse / propale / interne sur la période */}
       <div className="bg-card rounded-lg border border-border p-5 mb-6">
         <div className="flex items-baseline justify-between mb-4">
-          <h3 className="label-uppercase">Répartition client / interne {periodLabel}</h3>
+          <h3 className="label-uppercase">Répartition {periodLabel}</h3>
           <div className="text-xs text-muted-foreground">
-            Client {stats?.clientHours ?? 0}h · Interne {stats?.internalHours ?? 0}h
+            Client {stats?.clientHours ?? 0}h · Transverses {stats?.transverseHours ?? 0}h · Propales {stats?.proposalHours ?? 0}h · Interne {stats?.internalHours ?? 0}h
           </div>
         </div>
         {(stats?.repartition ?? []).length === 0 ? (
@@ -84,10 +96,7 @@ const AdminDashboard = () => {
                   paddingAngle={2}
                 >
                   {(stats?.repartition ?? []).map((slice, i) => (
-                    <Cell
-                      key={i}
-                      fill={slice.isClient ? "#007F5F" : INTERNAL_COLORS[i % INTERNAL_COLORS.length]}
-                    />
+                    <Cell key={i} fill={sliceColor(slice, i)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -101,7 +110,7 @@ const AdminDashboard = () => {
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span
                     className="w-3 h-3 rounded-sm flex-shrink-0"
-                    style={{ backgroundColor: slice.isClient ? "#007F5F" : INTERNAL_COLORS[i % INTERNAL_COLORS.length] }}
+                    style={{ backgroundColor: sliceColor(slice, i) }}
                   />
                   <span className="flex-1 truncate">{slice.name}</span>
                   <span className="font-semibold text-primary">{slice.hours}h</span>
@@ -129,10 +138,19 @@ const AdminDashboard = () => {
                   contentStyle={{ backgroundColor: "#fff", border: "1px solid hsl(156, 20%, 88%)", borderRadius: "8px", fontSize: "13px" }}
                   formatter={(value: any, name: any) => [`${value}h`, name]}
                 />
-                <Bar dataKey="client" stackId="a" fill="#007F5F" name="Client" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="internal" stackId="a" fill="#002E22" name="Interne" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="client"     stackId="a" fill={COLOR_CLIENT}           name="Client" />
+                <Bar dataKey="transverse" stackId="a" fill={COLOR_TRANSVERSE}       name="Transverses" />
+                <Bar dataKey="proposal"   stackId="a" fill={COLOR_PROPOSAL}         name="Propales" />
+                <Bar dataKey="internal"   stackId="a" fill={COLOR_INTERNAL_DEFAULT} name="Interne" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+
+            <div className="flex flex-wrap gap-4 mt-3 mb-2 text-xs">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: COLOR_CLIENT }} /> Client</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: COLOR_TRANSVERSE }} /> Projets transverses</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: COLOR_PROPOSAL }} /> Propales</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: COLOR_INTERNAL_DEFAULT }} /> Interne</span>
+            </div>
 
             <table className="w-full mt-4">
               <thead>
@@ -140,27 +158,40 @@ const AdminDashboard = () => {
                   <th className="text-left px-2 py-2 label-uppercase">Consultant</th>
                   <th className="text-right px-2 py-2 label-uppercase">Total</th>
                   <th className="text-right px-2 py-2 label-uppercase">Client</th>
+                  <th className="text-right px-2 py-2 label-uppercase">Transverse</th>
+                  <th className="text-right px-2 py-2 label-uppercase">Propale</th>
                   <th className="text-right px-2 py-2 label-uppercase">Interne</th>
                   <th className="text-right px-2 py-2 label-uppercase">% client</th>
                   <th className="px-2 py-2 label-uppercase w-32">Répartition</th>
                 </tr>
               </thead>
               <tbody>
-                {(stats?.byConsultant ?? []).map((c) => (
-                  <tr key={c.fullName} className="border-b border-border last:border-b-0">
-                    <td className="px-2 py-2 text-sm">{c.fullName}</td>
-                    <td className="px-2 py-2 text-sm text-right font-semibold text-primary">{c.total}h</td>
-                    <td className="px-2 py-2 text-sm text-right">{c.client}h</td>
-                    <td className="px-2 py-2 text-sm text-right">{c.internal}h</td>
-                    <td className="px-2 py-2 text-sm text-right text-muted-foreground">{c.percentClient}%</td>
-                    <td className="px-2 py-2">
-                      <div className="flex h-2 rounded-full overflow-hidden bg-muted">
-                        <div className="bg-secondary" style={{ width: `${c.percentClient}%` }} />
-                        <div className="bg-primary" style={{ width: `${100 - c.percentClient}%` }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {(stats?.byConsultant ?? []).map((c) => {
+                  const t = c.total > 0 ? c.total : 1;
+                  const pc = (c.client / t) * 100;
+                  const pt = (c.transverse / t) * 100;
+                  const pp = (c.proposal / t) * 100;
+                  const pi = (c.internal / t) * 100;
+                  return (
+                    <tr key={c.fullName} className="border-b border-border last:border-b-0">
+                      <td className="px-2 py-2 text-sm">{c.fullName}</td>
+                      <td className="px-2 py-2 text-sm text-right font-semibold text-primary">{c.total}h</td>
+                      <td className="px-2 py-2 text-sm text-right">{c.client}h</td>
+                      <td className="px-2 py-2 text-sm text-right">{c.transverse}h</td>
+                      <td className="px-2 py-2 text-sm text-right">{c.proposal}h</td>
+                      <td className="px-2 py-2 text-sm text-right">{c.internal}h</td>
+                      <td className="px-2 py-2 text-sm text-right text-muted-foreground">{c.percentClient}%</td>
+                      <td className="px-2 py-2">
+                        <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                          <div style={{ width: `${pc}%`, backgroundColor: COLOR_CLIENT }} />
+                          <div style={{ width: `${pt}%`, backgroundColor: COLOR_TRANSVERSE }} />
+                          <div style={{ width: `${pp}%`, backgroundColor: COLOR_PROPOSAL }} />
+                          <div style={{ width: `${pi}%`, backgroundColor: COLOR_INTERNAL_DEFAULT }} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </>
@@ -216,11 +247,20 @@ const AdminDashboard = () => {
                       <Link to={`/missions/${e.mission_id}`} className="text-secondary hover:underline">
                         {e.mission?.name ?? "—"}
                       </Link>
+                    ) : e.transverse_project_id ? (
+                      e.transverse_project?.name ?? "—"
+                    ) : e.proposal_id ? (
+                      e.proposal?.name ?? "—"
                     ) : (
                       e.internal_category ?? "—"
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{e.mission?.nature_mission ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {e.mission?.nature_mission
+                      ?? (e.transverse_project_id ? "Projet transverse" : null)
+                      ?? (e.proposal_id ? (e.proposal?.mission_type ?? "Propale") : null)
+                      ?? "—"}
+                  </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     {format(new Date(e.entry_date + "T12:00:00"), "dd/MM/yyyy")}
                   </td>
