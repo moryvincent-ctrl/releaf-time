@@ -203,6 +203,22 @@ export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("
         formatMission(m, "Terminé"),
       );
 
+      // ── Temps internes du user agrégés par catégorie (sur toute l'histoire)
+      const { data: internalRows, error: e3b } = await supabase
+        .from("time_entries")
+        .select("internal_category, hours")
+        .eq("user_id", user!.id)
+        .not("internal_category", "is", null);
+      if (e3b) throw e3b;
+      const internalByCatMap = new Map<string, number>();
+      for (const r of internalRows ?? []) {
+        const cat = (r.internal_category as string | null) ?? "Non catégorisé";
+        internalByCatMap.set(cat, (internalByCatMap.get(cat) ?? 0) + Number(r.hours));
+      }
+      const internalByCategory = Array.from(internalByCatMap.entries())
+        .map(([name, hours]) => ({ name, hours: Math.round(hours * 10) / 10 }))
+        .sort((a, b) => b.hours - a.hours);
+
       // ── Projets transverses du user (assignés OU avec des time_entries)
       const { data: tAssignments, error: e4 } = await supabase
         .from("transverse_project_assignments")
@@ -304,6 +320,7 @@ export function useConsultantDashboard(value: PeriodValue = defaultPeriodValue("
         recentWeeks: recentBuckets, // garde le nom pour compat UI
         missions,
         missionsCompleted,
+        internalByCategory,
         transverseProjects,
         proposals,
       };

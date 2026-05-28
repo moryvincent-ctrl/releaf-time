@@ -16,7 +16,7 @@ export function useAdminStats(value: PeriodValue = defaultPeriodValue("month")) 
       ] = await Promise.all([
         supabase
           .from("time_entries")
-          .select("hours, mission_id, user_id, internal_category, transverse_project_id, proposal_id, user:profiles(full_name)")
+          .select("hours, mission_id, user_id, internal_category, transverse_project_id, proposal_id, user:profiles(full_name), transverse_project:transverse_projects(name), proposal:proposals(name, mission_type)")
           .gte("entry_date", start)
           .lte("entry_date", end),
         supabase.from("missions").select("id").eq("status", "active"),
@@ -39,6 +39,7 @@ export function useAdminStats(value: PeriodValue = defaultPeriodValue("month")) 
       const proposalHours    = sumBy((e) => familyOf(e) === "proposal");
       const internalHours    = sumBy((e) => familyOf(e) === "internal");
       const percentClient = totalHours > 0 ? Math.round((clientHours / totalHours) * 100) : 0;
+      const percentTransverse = totalHours > 0 ? Math.round((transverseHours / totalHours) * 100) : 0;
       const activeUsers = new Set((periodEntries ?? []).map((e) => e.user_id)).size;
 
       // Répartition : "Client" + "Transverse" + "Propale" en blocs + chaque catégorie interne séparée
@@ -62,6 +63,37 @@ export function useAdminStats(value: PeriodValue = defaultPeriodValue("month")) 
         }))
         .sort((a, b) => b.hours - a.hours);
 
+      // Agrégats globaux pour les encarts (sur la période)
+      const aggByKey = (
+        keyFn: (e: any) => string | null,
+        labelFn: (e: any) => string,
+      ) => {
+        const map = new Map<string, { name: string; hours: number }>();
+        for (const e of periodEntries ?? []) {
+          const k = keyFn(e);
+          if (!k) continue;
+          const prev = map.get(k) ?? { name: labelFn(e), hours: 0 };
+          prev.hours += Number(e.hours);
+          map.set(k, prev);
+        }
+        return Array.from(map.values())
+          .map((v) => ({ name: v.name, hours: Math.round(v.hours * 10) / 10 }))
+          .sort((a, b) => b.hours - a.hours);
+      };
+
+      const internalByCategory = aggByKey(
+        (e) => (familyOf(e) === "internal" ? (e.internal_category ?? "Non catégorisé") : null),
+        (e) => (e.internal_category as string | null) ?? "Non catégorisé",
+      );
+      const transverseProjects = aggByKey(
+        (e) => (familyOf(e) === "transverse" ? e.transverse_project_id : null),
+        (e) => (e.transverse_project as any)?.name ?? "Projet transverse",
+      );
+      const proposals = aggByKey(
+        (e) => (familyOf(e) === "proposal" ? e.proposal_id : null),
+        (e) => (e.proposal as any)?.name ?? "Propale",
+      );
+
       // Charge par consultant sur la période — 4 familles
       type ConsultantBucket = { name: string; client: number; transverse: number; proposal: number; internal: number };
       const byUser = new Map<string, ConsultantBucket>();
@@ -80,11 +112,15 @@ export function useAdminStats(value: PeriodValue = defaultPeriodValue("month")) 
         activeConsultants: activeUsers,
         activeMissions: (activeMissions ?? []).length,
         percentClient,
+        percentTransverse,
         clientHours: Math.round(clientHours * 10) / 10,
         transverseHours: Math.round(transverseHours * 10) / 10,
         proposalHours: Math.round(proposalHours * 10) / 10,
         internalHours: Math.round(internalHours * 10) / 10,
         repartition,
+        internalByCategory,
+        transverseProjects,
+        proposals,
         byConsultant: Array.from(byUser.values())
           .map((u) => {
             const total = u.client + u.transverse + u.proposal + u.internal;

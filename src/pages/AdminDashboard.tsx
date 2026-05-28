@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Users, Briefcase, Clock, PieChart as PieChartIcon, Loader2 } from "lucide-react";
+import { Download, Users, Briefcase, Clock, PieChart as PieChartIcon, Loader2, Network, Layers, FileText, Activity } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
@@ -65,18 +65,23 @@ const AdminDashboard = () => {
           <Loader2 className="animate-spin text-secondary" size={24} />
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${stats?.totalHours ?? 0}h`} />
           <KpiCard icon={<Users size={18} />} label="Consultants actifs" value={`${stats?.activeConsultants ?? 0}`} />
           <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${stats?.activeMissions ?? 0}`} />
           <KpiCard icon={<PieChartIcon size={18} />} label="% temps client" value={`${stats?.percentClient ?? 0}%`} />
+          <KpiCard
+            icon={<Network size={18} />}
+            label={`Charge transverse (${stats?.percentTransverse ?? 0}%)`}
+            value={`${stats?.transverseHours ?? 0}h`}
+          />
         </div>
       )}
 
       {/* Répartition client / transverse / propale / interne sur la période */}
       <div className="bg-card rounded-lg border border-border p-5 mb-6">
         <div className="flex items-baseline justify-between mb-4">
-          <h3 className="label-uppercase">Répartition {periodLabel}</h3>
+          <h3 className="card-title">Répartition {periodLabel}</h3>
           <div className="text-xs text-muted-foreground">
             Client {stats?.clientHours ?? 0}h · Transverses {stats?.transverseHours ?? 0}h · Propales {stats?.proposalHours ?? 0}h · Interne {stats?.internalHours ?? 0}h
           </div>
@@ -124,7 +129,7 @@ const AdminDashboard = () => {
 
       {/* Charge par consultant sur la période */}
       <div className="bg-card rounded-lg border border-border p-5 mb-6">
-        <h3 className="label-uppercase mb-4">Charge par consultant {periodLabel}</h3>
+        <h3 className="card-title mb-4">Charge par consultant {periodLabel}</h3>
         {(stats?.byConsultant ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">Aucune saisie {periodLabel}</p>
         ) : (
@@ -196,6 +201,69 @@ const AdminDashboard = () => {
             </table>
           </>
         )}
+      </div>
+
+      {/* Temps internes + Projets transverses + Propales (agrégés sur la période) */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Activity size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Temps internes</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{(stats?.internalByCategory ?? []).length}</span>
+          </div>
+          {(stats?.internalByCategory ?? []).length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">Aucun temps interne {periodLabel}</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {(stats?.internalByCategory ?? []).map((c) => (
+                <div key={c.name} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{c.name}</div>
+                  <div className="text-xs font-semibold text-primary">{c.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Layers size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Projets transverses</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{(stats?.transverseProjects ?? []).length}</span>
+          </div>
+          {(stats?.transverseProjects ?? []).length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">Aucun projet transverse {periodLabel}</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {(stats?.transverseProjects ?? []).map((p) => (
+                <div key={p.name} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <FileText size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Propales</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{(stats?.proposals ?? []).length}</span>
+          </div>
+          {(stats?.proposals ?? []).length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">Aucune propale {periodLabel}</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {(stats?.proposals ?? []).map((p) => (
+                <div key={p.name} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Table des saisies */}

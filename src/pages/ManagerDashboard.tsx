@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock, Briefcase, Activity, AlertTriangle, Loader2 } from "lucide-react";
+import { Clock, Briefcase, Activity, AlertTriangle, Loader2, Network, Layers, FileText } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
@@ -35,13 +35,18 @@ const ManagerDashboard = () => {
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
-      {/* 4 KPI identiques au consultant */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      {/* KPI alignés sur le consultant */}
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${data.hoursThisWeek}h`} />
         <KpiCard
           icon={<Activity size={18} />}
           label={`Charge client (${data.chargeClient}%)`}
           value={`${data.clientHoursThisWeek}h`}
+        />
+        <KpiCard
+          icon={<Network size={18} />}
+          label={`Charge transverse (${data.chargeTransverse}%)`}
+          value={`${data.transverseHoursThisWeek}h`}
         />
         <KpiCard
           icon={<Activity size={18} />}
@@ -74,7 +79,7 @@ const ManagerDashboard = () => {
       {/* Alertes sur les missions qu'il gère */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mb-6">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="label-uppercase flex items-center gap-2">
+          <h3 className="card-title flex items-center gap-2">
             <AlertTriangle size={14} className="text-destructive" />
             Alertes sur mes missions
           </h3>
@@ -119,7 +124,7 @@ const ManagerDashboard = () => {
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
-            <h3 className="label-uppercase">Historique récent</h3>
+            <h3 className="card-title">Historique récent</h3>
           </div>
           <table className="w-full">
             <thead>
@@ -143,7 +148,7 @@ const ManagerDashboard = () => {
 
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <h3 className="label-uppercase">Missions en cours</h3>
+            <h3 className="card-title">Missions en cours</h3>
             <span className="text-xs text-muted-foreground">{data.missions.length}</span>
           </div>
           {data.missions.length === 0 ? (
@@ -177,10 +182,84 @@ const ManagerDashboard = () => {
         </div>
       </div>
 
+      {/* Temps internes + Projets transverses + Propales */}
+      <div className="grid grid-cols-3 gap-6 mt-6">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Activity size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Temps internes</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.internalByCategory.length}</span>
+          </div>
+          {data.internalByCategory.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucun temps interne pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.internalByCategory.map((c) => (
+                <div key={c.name} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{c.name}</div>
+                  <div className="text-xs font-semibold text-primary">{c.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Layers size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Projets transverses</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.transverseProjects.length}</span>
+          </div>
+          {data.transverseProjects.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucun projet transverse pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.transverseProjects.map((p) => (
+                <div key={p.id} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <FileText size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Propales</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.proposals.length}</span>
+          </div>
+          {data.proposals.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucune propale pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.proposals.map((p) => (
+                <div key={p.id} className="px-4 py-3 flex justify-between items-center">
+                  <div>
+                    <div className="text-sm font-medium">{p.name}</div>
+                    {p.mission_type && (
+                      <div className="text-xs text-muted-foreground">{p.mission_type}</div>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold text-primary">{p.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Missions terminées */}
       <div className="bg-card rounded-lg border border-border overflow-hidden mt-6">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="label-uppercase">Missions terminées</h3>
+          <h3 className="card-title">Missions terminées</h3>
           <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
         </div>
         {data.missionsCompleted.length === 0 ? (

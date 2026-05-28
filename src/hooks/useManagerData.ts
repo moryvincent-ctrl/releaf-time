@@ -79,7 +79,7 @@ export function useManagerDashboard(value: PeriodValue = defaultPeriodValue("wee
       // ── Ses propres saisies (sur l'historique)
       const { data: ownEntries, error: e1 } = await supabase
         .from("time_entries")
-        .select("hours, entry_date, mission_id")
+        .select("hours, entry_date, mission_id, internal_category, transverse_project_id, proposal_id")
         .eq("user_id", user!.id)
         .gte("entry_date", earliestStr)
         .lte("entry_date", end);
@@ -132,19 +132,26 @@ export function useManagerDashboard(value: PeriodValue = defaultPeriodValue("wee
         }
       }
 
-      // ── KPIs sur la période courante
+      // ── KPIs sur la période courante (4 sources : client / transverse / propale / interne)
       const periodEntries = (ownEntries ?? []).filter(
         (e: any) => e.entry_date >= start && e.entry_date <= end,
       );
-      const hoursThisPeriod = periodEntries.reduce((s: number, e: any) => s + Number(e.hours), 0);
-      const clientHoursThisPeriod = periodEntries
-        .filter((e: any) => e.mission_id)
-        .reduce((s: number, e: any) => s + Number(e.hours), 0);
-      const internalHoursThisPeriod = hoursThisPeriod - clientHoursThisPeriod;
+      const sumWhere = (pred: (e: any) => boolean) =>
+        periodEntries.filter(pred).reduce((s: number, e: any) => s + Number(e.hours), 0);
+
+      const hoursThisPeriod          = periodEntries.reduce((s: number, e: any) => s + Number(e.hours), 0);
+      const clientHoursThisPeriod    = sumWhere((e) => !!e.mission_id);
+      const transverseHoursThisPeriod = sumWhere((e) => !!e.transverse_project_id);
+      const proposalHoursThisPeriod  = sumWhere((e) => !!e.proposal_id);
+      const internalHoursThisPeriod  = sumWhere((e) => !!e.internal_category);
+
       const refHours = referenceHours(period, start, end);
-      const charge = refHours > 0 ? Math.round((hoursThisPeriod / refHours) * 100) : 0;
-      const chargeClient = refHours > 0 ? Math.round((clientHoursThisPeriod / refHours) * 100) : 0;
-      const chargeInternal = refHours > 0 ? Math.round((internalHoursThisPeriod / refHours) * 100) : 0;
+      const pct = (h: number) => (refHours > 0 ? Math.round((h / refHours) * 100) : 0);
+      const charge = pct(hoursThisPeriod);
+      const chargeClient = pct(clientHoursThisPeriod);
+      const chargeTransverse = pct(transverseHoursThisPeriod);
+      const chargeProposal = pct(proposalHoursThisPeriod);
+      const chargeInternal = pct(internalHoursThisPeriod);
 
       // ── Historique récent par bucket
       const byBucket = new Map<string, { hours: number; missions: Set<string> }>();
@@ -190,20 +197,117 @@ export function useManagerDashboard(value: PeriodValue = defaultPeriodValue("wee
       const missionsCompleted = allMissions.filter((m: any) => m.status === "completed").map(formatMission);
       const alerts = missions.filter((m) => m.isManaged && m.alert !== null);
 
+      // ── Temps internes par catégorie (toute l'histoire du user)
+      const { data: internalRows, error: eI } = await supabase
+        .from("time_entries")
+        .select("internal_category, hours")
+        .eq("user_id", user!.id)
+        .not("internal_category", "is", null);
+      if (eI) throw eI;
+      const internalByCatMap = new Map<string, number>();
+      for (const r of internalRows ?? []) {
+        const cat = (r.internal_category as string | null) ?? "Non catégorisé";
+        internalByCatMap.set(cat, (internalByCatMap.get(cat) ?? 0) + Number(r.hours));
+      }
+      const internalByCategory = Array.from(internalByCatMap.entries())
+        .map(([name, hours]) => ({ name, hours: Math.round(hours * 10) / 10 }))
+        .sort((a, b) => b.hours - a.hours);
+
+      // ── Projets transverses du user (assignés OU avec time_entries)
+      const { data: tAssignments, error: eT1 } = await supabase
+        .from("transverse_project_assignments")
+        .select("transverse_project_id")
+        .eq("user_id", user!.id);
+      if (eT1) throw eT1;
+      const tEntryIds = (ownEntries ?? [])
+        .map((e: any) => e.transverse_project_id)
+        .filter(Boolean) as string[];
+      const tIds = Array.from(new Set([
+        ...((tAssignments ?? []).map((a: any) => a.transverse_project_id) as string[]),
+        ...tEntryIds,
+      ]));
+      let transverseProjects: { id: string; name: string; hours: number }[] = [];
+      if (tIds.length > 0) {
+        const { data: tProjects, error: eT2 } = await supabase
+          .from("transverse_projects")
+          .select("id, name, status")
+          .in("id", tIds)
+          .eq("status", "active");
+        if (eT2) throw eT2;
+        const { data: tHours, error: eT3 } = await supabase
+          .from("time_entries")
+          .select("transverse_project_id, hours")
+          .eq("user_id", user!.id)
+          .in("transverse_project_id", tIds);
+        if (eT3) throw eT3;
+        const hoursByT = new Map<string, number>();
+        for (const e of tHours ?? []) {
+          const key = e.transverse_project_id as string;
+          hoursByT.set(key, (hoursByT.get(key) ?? 0) + Number(e.hours));
+        }
+        transverseProjects = (tProjects ?? [])
+          .map((p: any) => ({ id: p.id, name: p.name, hours: Math.round((hoursByT.get(p.id) ?? 0) * 10) / 10 }))
+          .sort((a, b) => b.hours - a.hours);
+      }
+
+      // ── Propales du user (ajoutées OU avec time_entries)
+      const { data: pAdded, error: eP1 } = await supabase
+        .from("user_proposals")
+        .select("proposal_id")
+        .eq("user_id", user!.id);
+      if (eP1) throw eP1;
+      const pEntryIds = (ownEntries ?? [])
+        .map((e: any) => e.proposal_id)
+        .filter(Boolean) as string[];
+      const pIds = Array.from(new Set([
+        ...((pAdded ?? []).map((r: any) => r.proposal_id) as string[]),
+        ...pEntryIds,
+      ]));
+      let proposals: { id: string; name: string; mission_type: string | null; hours: number }[] = [];
+      if (pIds.length > 0) {
+        const { data: pList, error: eP2 } = await supabase
+          .from("proposals")
+          .select("id, name, mission_type, status")
+          .in("id", pIds)
+          .eq("status", "active");
+        if (eP2) throw eP2;
+        const { data: pHoursRows, error: eP3 } = await supabase
+          .from("time_entries")
+          .select("proposal_id, hours")
+          .eq("user_id", user!.id)
+          .in("proposal_id", pIds);
+        if (eP3) throw eP3;
+        const hoursByP = new Map<string, number>();
+        for (const e of pHoursRows ?? []) {
+          const key = e.proposal_id as string;
+          hoursByP.set(key, (hoursByP.get(key) ?? 0) + Number(e.hours));
+        }
+        proposals = (pList ?? [])
+          .map((p: any) => ({ id: p.id, name: p.name, mission_type: p.mission_type ?? null, hours: Math.round((hoursByP.get(p.id) ?? 0) * 10) / 10 }))
+          .sort((a, b) => b.hours - a.hours);
+      }
+
       return {
         period,
         hoursThisWeek: Math.round(hoursThisPeriod * 10) / 10,
         clientHoursThisWeek: Math.round(clientHoursThisPeriod * 10) / 10,
+        transverseHoursThisWeek: Math.round(transverseHoursThisPeriod * 10) / 10,
+        proposalHoursThisWeek: Math.round(proposalHoursThisPeriod * 10) / 10,
         internalHoursThisWeek: Math.round(internalHoursThisPeriod * 10) / 10,
         activeMissionsCount: myActiveAssignedCount,
         charge,
         chargeClient,
+        chargeTransverse,
+        chargeProposal,
         chargeInternal,
         weeklyBase: refHours,
         recentWeeks: recentBuckets,
         missions,
         missionsCompleted,
         alerts,
+        internalByCategory,
+        transverseProjects,
+        proposals,
       };
     },
     enabled: !!user,

@@ -78,4 +78,8 @@
   .label-uppercase {
     @apply text-[11px] uppercase tracking-wider font-medium text-muted-foreground;
   }
+  /* Titre d'encart (un peu plus gros que label-uppercase, conserve l'esthétique uppercase) */
+  .card-title {
+    @apply text-sm font-heading font-semibold uppercase tracking-wider text-primary;
+  }
 }

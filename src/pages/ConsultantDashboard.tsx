@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Clock, Briefcase, Activity, Loader2, Layers, FileText, ChevronDown } from "lucide-react";
+import { Clock, Briefcase, Activity, Loader2, Layers, FileText, ChevronDown, Network } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import KpiCard from "@/components/KpiCard";
 import BudgetBar from "@/components/BudgetBar";
@@ -39,7 +39,7 @@ const ConsultantDashboard = () => {
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-6 gap-4 mb-6">
         <KpiCard icon={<Clock size={18} />} label={`Heures ${periodLabel}`} value={`${data.hoursThisWeek}h`} />
         <KpiCard
           icon={<Activity size={18} />}
@@ -47,14 +47,19 @@ const ConsultantDashboard = () => {
           value={`${data.clientHoursThisWeek}h`}
         />
         <KpiCard
-          icon={<Activity size={18} />}
-          label={`Charge interne (${data.chargeInternal}%)`}
-          value={`${data.internalHoursThisWeek}h`}
+          icon={<Network size={18} />}
+          label={`Charge transverse (${data.chargeTransverse}%)`}
+          value={`${data.transverseHoursThisWeek}h`}
         />
         <KpiCard
           icon={<FileText size={18} />}
           label={`Charge propales (${data.chargeProposal}%)`}
           value={`${data.proposalHoursThisWeek}h`}
+        />
+        <KpiCard
+          icon={<Activity size={18} />}
+          label={`Charge interne (${data.chargeInternal}%)`}
+          value={`${data.internalHoursThisWeek}h`}
         />
         <KpiCard icon={<Briefcase size={18} />} label="Missions actives" value={`${data.activeMissionsCount}`} />
       </div>
@@ -106,7 +111,7 @@ const ConsultantDashboard = () => {
         {/* Historique récent */}
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
-            <h3 className="label-uppercase">Historique récent</h3>
+            <h3 className="card-title">Historique récent</h3>
           </div>
           <table className="w-full">
             <thead>
@@ -131,7 +136,7 @@ const ConsultantDashboard = () => {
         {/* Missions en cours */}
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
-            <h3 className="label-uppercase">Missions en cours</h3>
+            <h3 className="card-title">Missions en cours</h3>
           </div>
           {data.missions.length === 0 ? (
             <div className="px-4 py-8 text-sm text-muted-foreground text-center">
@@ -164,12 +169,34 @@ const ConsultantDashboard = () => {
         </div>
       </div>
 
-      {/* Projets transverses + Propales */}
-      <div className="grid grid-cols-2 gap-6 mt-6">
+      {/* Temps internes + Projets transverses + Propales */}
+      <div className="grid grid-cols-3 gap-6 mt-6">
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <Layers size={14} className="text-muted-foreground" />
-            <h3 className="label-uppercase">Projets transverses</h3>
+            <Activity size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Temps internes</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{data.internalByCategory.length}</span>
+          </div>
+          {data.internalByCategory.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+              Aucun temps interne pour le moment.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {data.internalByCategory.map((c) => (
+                <div key={c.name} className="px-4 py-3 flex justify-between items-center">
+                  <div className="text-sm font-medium">{c.name}</div>
+                  <div className="text-xs font-semibold text-primary">{c.hours}h</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Layers size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Projets transverses</h3>
             <span className="ml-auto text-xs text-muted-foreground">{data.transverseProjects.length}</span>
           </div>
           {data.transverseProjects.length === 0 ? (
@@ -190,8 +217,8 @@ const ConsultantDashboard = () => {
 
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <FileText size={14} className="text-muted-foreground" />
-            <h3 className="label-uppercase">Propales</h3>
+            <FileText size={16} className="text-muted-foreground" />
+            <h3 className="card-title">Propales</h3>
             <span className="ml-auto text-xs text-muted-foreground">{data.proposals.length}</span>
           </div>
           {data.proposals.length === 0 ? (
@@ -219,7 +246,7 @@ const ConsultantDashboard = () => {
       {/* Missions terminées (repliable, fermé par défaut) */}
       <Collapsible open={completedOpen} onOpenChange={setCompletedOpen} className="bg-card rounded-lg border border-border overflow-hidden mt-6">
         <CollapsibleTrigger className="w-full px-4 py-3 border-b border-border flex items-center justify-between hover:bg-muted/40 transition-colors data-[state=closed]:border-b-0">
-          <h3 className="label-uppercase">Missions terminées</h3>
+          <h3 className="card-title">Missions terminées</h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{data.missionsCompleted.length}</span>
             <ChevronDown size={16} className={`text-muted-foreground transition-transform ${completedOpen ? "rotate-180" : ""}`} />
