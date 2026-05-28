@@ -211,8 +211,10 @@ const ConsultantView = () => {
       setDirty(false);
       if (!opts.silent) toast.success("Feuille de temps sauvegardée");
       return true;
-    } catch {
-      toast.error("Erreur lors de la sauvegarde");
+    } catch (err: any) {
+      console.error("Erreur de sauvegarde feuille de temps :", err);
+      const detail = err?.message || err?.error_description || err?.code;
+      toast.error(detail ? `Erreur lors de la sauvegarde : ${detail}` : "Erreur lors de la sauvegarde");
       return false;
     } finally {
       setSaving(false);
