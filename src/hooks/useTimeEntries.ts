@@ -91,12 +91,12 @@ export function useAssignedMissions() {
         const m: any = a.mission;
         if (m && m.status === "active") byId.set(m.id, m);
       }
-      // Les missions sur lesquelles l'user a saisi du temps restent sur la grille
-      // tant qu'elles ont au moins une saisie — y compris les missions terminées
-      // ajoutées ponctuellement (statut Notion "Terminé").
+      // Seules les missions EN COURS remontent automatiquement sur la grille.
+      // Les missions terminées ne s'affichent que si elles sont ajoutées
+      // manuellement via "Ajouter une mission ponctuelle" (état de session).
       for (const e of entries ?? []) {
         const m: any = e.mission;
-        if (m && (m.status === "active" || m.status === "completed") && !byId.has(m.id)) byId.set(m.id, m);
+        if (m && m.status === "active" && !byId.has(m.id)) byId.set(m.id, m);
       }
       return Array.from(byId.values());
     },
