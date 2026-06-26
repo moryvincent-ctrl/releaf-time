@@ -91,9 +91,12 @@ export function useAssignedMissions() {
         const m: any = a.mission;
         if (m && m.status === "active") byId.set(m.id, m);
       }
+      // Les missions sur lesquelles l'user a saisi du temps restent sur la grille
+      // tant qu'elles ont au moins une saisie — y compris les missions terminées
+      // ajoutées ponctuellement (statut Notion "Terminé").
       for (const e of entries ?? []) {
         const m: any = e.mission;
-        if (m && m.status === "active" && !byId.has(m.id)) byId.set(m.id, m);
+        if (m && (m.status === "active" || m.status === "completed") && !byId.has(m.id)) byId.set(m.id, m);
       }
       return Array.from(byId.values());
     },
@@ -101,7 +104,9 @@ export function useAssignedMissions() {
   });
 }
 
-// Toutes les missions actives (pour ajout ponctuel depuis ConsultantView)
+// Missions sélectionnables pour un ajout ponctuel depuis ConsultantView :
+// les missions en cours (sur lesquelles on n'est pas forcément staffé) ET les
+// missions terminées (statut Notion "Terminé"), pour pouvoir saisir du temps a posteriori.
 export function useActiveMissions() {
   return useQuery({
     queryKey: ["active_missions"],
@@ -109,7 +114,7 @@ export function useActiveMissions() {
       const { data, error } = await supabase
         .from("missions")
         .select("id, name, client, pole, nature_mission, status")
-        .eq("status", "active")
+        .in("status", ["active", "completed"])
         .order("client", { ascending: true });
       if (error) throw error;
       return data ?? [];

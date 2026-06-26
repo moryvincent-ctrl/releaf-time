@@ -236,10 +236,15 @@ const ConsultantView = () => {
   const prevWeek = () => changeWeek(-7);
   const nextWeek = () => changeWeek(7);
 
-  const renderRow = (key: string, name: string, client?: string, nature?: string, pole?: string) => (
+  const renderRow = (key: string, name: string, client?: string, nature?: string, pole?: string, status?: string) => (
     <tr key={key} className="border-b border-border last:border-b-0">
       <td className="px-4 py-3">
-        <div className="font-semibold text-sm text-foreground">{name}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">{name}</span>
+          {status === "completed" && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Terminé</span>
+          )}
+        </div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {client && <span className="text-xs text-muted-foreground">{client}</span>}
           {nature && client && <span className="text-xs text-muted-foreground">·</span>}
@@ -372,7 +377,7 @@ const ConsultantView = () => {
               </tr>
             ) : (
               assignedMissions.map((m: any) =>
-                renderRow(missionKey(m.id), m.name, m.client, m.nature_mission, m.pole)
+                renderRow(missionKey(m.id), m.name, m.client, m.nature_mission, m.pole, m.status)
               )
             )}
             <tr>
@@ -469,7 +474,7 @@ const ConsultantView = () => {
             <DialogTitle>Ajouter une mission ponctuelle</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Sélectionne une mission en cours sur laquelle tu n'es pas staffé pour pouvoir saisir du temps dessus. Elle restera sur ta grille tant qu'elle contient au moins une saisie.
+            Sélectionne une mission en cours sur laquelle tu n'es pas staffé, ou une mission déjà terminée, pour pouvoir saisir du temps dessus. Elle restera sur ta grille tant qu'elle contient au moins une saisie.
           </p>
           <Input
             autoFocus
@@ -494,7 +499,14 @@ const ConsultantView = () => {
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors"
                 >
-                  <div className="text-sm font-medium text-foreground">{m.client}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">{m.client}</span>
+                    {m.status === "completed" && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        Terminé
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {m.name}{m.nature_mission ? ` · ${m.nature_mission}` : ""}
                   </div>
