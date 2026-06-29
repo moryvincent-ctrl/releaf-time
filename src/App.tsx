@@ -10,6 +10,7 @@ import ConsultantView from "./pages/ConsultantView";
 import ConsultantDashboard from "./pages/ConsultantDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import StaffingView from "./pages/StaffingView";
 import Missions from "./pages/Missions";
 import MissionDetail from "./pages/MissionDetail";
 import Settings from "./pages/Settings";
@@ -57,6 +58,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/staffing"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <StaffingView />
                 </ProtectedRoute>
               }
             />

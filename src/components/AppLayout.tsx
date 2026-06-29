@@ -8,6 +8,7 @@ import {
   Settings,
   BarChart3,
   Shield,
+  CalendarRange,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +29,7 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
     { label: "Vue globale", path: "/admin", icon: Shield },
+    { label: "Staffing", path: "/admin/staffing", icon: CalendarRange },
     { label: "Mon compte", path: "/account", icon: User },
     { label: "Paramètres", path: "/settings", icon: Settings },
   ],

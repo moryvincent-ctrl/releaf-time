@@ -90,6 +90,34 @@ export interface UserProposal {
   added_at: string;
 }
 
+export interface StaffingAllocation {
+  id: string;
+  user_id: string;
+  mission_id: string | null;
+  transverse_project_id: string | null;
+  month: string;            // 1er du mois, YYYY-MM-01
+  planned_days: number;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  user?: Profile;
+  mission?: Mission;
+  transverse_project?: TransverseProject;
+}
+
+export interface PayfitAbsence {
+  id: string;
+  payfit_id: string | null;
+  contract_id: string | null;
+  user_id: string | null;
+  absence_type: string | null;
+  begin_date: string | null;
+  end_date: string | null;
+  status: string | null;
+  raw: unknown;
+  synced_at: string;
+}
+
 export interface TimeEntry {
   id: string;
   user_id: string;
@@ -147,6 +175,16 @@ export interface Database {
         Row: UserProposal;
         Insert: Omit<UserProposal, "added_at">;
         Update: Partial<Omit<UserProposal, "user_id" | "proposal_id">>;
+      };
+      staffing_allocations: {
+        Row: StaffingAllocation;
+        Insert: Omit<StaffingAllocation, "id" | "created_at" | "updated_at" | "user" | "mission" | "transverse_project">;
+        Update: Partial<Omit<StaffingAllocation, "id" | "created_at">>;
+      };
+      payfit_absences: {
+        Row: PayfitAbsence;
+        Insert: Omit<PayfitAbsence, "id" | "synced_at">;
+        Update: Partial<Omit<PayfitAbsence, "id">>;
       };
     };
     Functions: {
