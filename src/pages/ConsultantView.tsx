@@ -460,7 +460,7 @@ const ConsultantView = () => {
               <td className="px-4 py-2.5">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-primary">Total quotidien</span>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
+                  <span className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
                     {grandTotal}h / {MAX_HOURS_PER_WEEK}h
                   </span>
                 </div>
