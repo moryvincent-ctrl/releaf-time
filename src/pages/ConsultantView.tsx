@@ -275,7 +275,7 @@ const ConsultantView = () => {
                   }
                   setCell(key, date, { hours: clamped });
                 }}
-                className="w-20 h-8 text-center mx-auto bg-card border-input text-sm rounded-md"
+                className="w-full max-w-[72px] h-8 text-center mx-auto bg-card border-input text-sm rounded-md"
               />
               <button
                 onClick={() => setShowComment(isActive ? null : { key, date })}
@@ -289,7 +289,7 @@ const ConsultantView = () => {
                 value={cell.comment}
                 onChange={(e) => setCell(key, date, { comment: e.target.value })}
                 placeholder="Commentaire..."
-                className="w-28 h-6 text-xs mt-1 mx-auto border-input"
+                className="w-full max-w-[110px] h-6 text-xs mt-1 mx-auto border-input"
               />
             )}
           </td>
@@ -300,6 +300,18 @@ const ConsultantView = () => {
         {rowTotal(key)}h
       </td>
     </tr>
+  );
+
+  // Largeurs de colonnes partagées entre la grille de saisie et la barre de totaux,
+  // pour que les jours restent alignés sous leurs colonnes.
+  const GridCols = () => (
+    <colgroup>
+      <col style={{ width: "30%" }} />
+      {weekDays.map((d) => (
+        <col key={d} style={{ width: "11%" }} />
+      ))}
+      <col style={{ width: "15%" }} />
+    </colgroup>
   );
 
   if (loadingEntries || loadingMissions) {
@@ -330,7 +342,8 @@ const ConsultantView = () => {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <GridCols />
           <thead>
             <tr className="border-b border-border">
               <th className="text-left px-4 py-3 text-base font-semibold uppercase tracking-wide text-primary w-1/3">Mission / Catégorie</th>
@@ -438,31 +451,40 @@ const ConsultantView = () => {
         </table>
       </div>
 
-      {/* Barre de totaux collée en bas de l'écran */}
-      <div className="sticky bottom-0 z-20 -mx-8 -mb-8 mt-6 px-8 py-3 border-t border-border bg-card/95 backdrop-blur-sm flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="text-muted-foreground text-xs uppercase tracking-wide mr-1">Total quotidien</span>
-            {DAYS_LABELS.map((label, i) => {
-              const total = colTotal(weekDays[i]);
-              const isFull = total >= MAX_HOURS_PER_DAY;
-              return (
-                <span key={label} className={isFull ? "text-secondary" : "text-primary"}>
-                  {label} {total}h
-                </span>
-              );
-            })}
-          </div>
-          <span className={`text-sm font-medium px-4 py-2 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
-            Total : {grandTotal}h / {MAX_HOURS_PER_WEEK}h
-          </span>
-        </div>
-        <Button className="rounded-lg" onClick={handleSave} disabled={saving}>
-          {saving
-            ? <><Loader2 size={14} className="mr-2 animate-spin" />Sauvegarde…</>
-            : "Sauvegarder"
-          }
-        </Button>
+      {/* Barre de totaux collée en bas — colonnes alignées sur la grille de saisie */}
+      <div className="sticky bottom-0 z-20 -mx-8 -mb-8 mt-6 px-8 border-t-2 border-secondary bg-secondary/15 backdrop-blur-sm">
+        <table className="w-full table-fixed">
+          <GridCols />
+          <tbody>
+            <tr>
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-primary">Total quotidien</span>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
+                    {grandTotal}h / {MAX_HOURS_PER_WEEK}h
+                  </span>
+                </div>
+              </td>
+              {DAYS_LABELS.map((label, i) => {
+                const total = colTotal(weekDays[i]);
+                const isFull = total >= MAX_HOURS_PER_DAY;
+                return (
+                  <td key={label} className={`text-center px-2 py-2.5 font-bold text-sm ${isFull ? "text-secondary" : "text-primary"}`}>
+                    {total}h
+                  </td>
+                );
+              })}
+              <td className="px-2 py-2.5 text-center">
+                <Button size="sm" className="rounded-lg w-full" onClick={handleSave} disabled={saving}>
+                  {saving
+                    ? <><Loader2 size={14} className="mr-1 animate-spin" />…</>
+                    : "Sauvegarder"
+                  }
+                </Button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
