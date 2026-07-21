@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import ConsultantView from "./pages/ConsultantView";
 import ConsultantDashboard from "./pages/ConsultantDashboard";
-import ManagerDashboard from "./pages/ManagerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffingView from "./pages/StaffingView";
 import Missions from "./pages/Missions";
@@ -45,14 +44,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/manager"
-              element={
-                <ProtectedRoute allowedRoles={["manager", "admin"]}>
-                  <ManagerDashboard />
-                </ProtectedRoute>
-              }
-            />
+            {/* Le manager utilise désormais le même tableau de bord que consultant/admin */}
+            <Route path="/manager" element={<Navigate to="/consultant/dashboard" replace />} />
             <Route
               path="/admin"
               element={

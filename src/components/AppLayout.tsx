@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Clock,
   User,
-  LayoutDashboard,
   Leaf,
   Settings,
   BarChart3,
@@ -22,7 +21,7 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   ],
   manager: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
-    { label: "Tableau de bord", path: "/manager", icon: LayoutDashboard },
+    { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
     { label: "Mon compte", path: "/account", icon: User },
   ],
   admin: [
