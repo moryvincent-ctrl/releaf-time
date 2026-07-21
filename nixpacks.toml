@@ -1,0 +1,4 @@
+# Pin a supported Node version. Nixpacks' default (Node 18) is EOL and was
+# removed from the pinned nixpkgs snapshot, which breaks the setup phase.
+[phases.setup]
+nixPkgs = ["nodejs_22", "bun"]
