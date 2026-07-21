@@ -327,18 +327,6 @@ const ConsultantView = () => {
             <ChevronRight size={16} />
           </Button>
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className={`text-sm font-medium px-4 py-2 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
-            Total : {grandTotal}h / {MAX_HOURS_PER_WEEK}h
-          </span>
-          <Button className="rounded-lg" onClick={handleSave} disabled={saving}>
-            {saving
-              ? <><Loader2 size={14} className="mr-2 animate-spin" />Sauvegarde…</>
-              : "Sauvegarder"
-            }
-          </Button>
-        </div>
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
@@ -447,25 +435,34 @@ const ConsultantView = () => {
               </td>
             </tr>
           </tbody>
-
-          <tfoot>
-            <tr className="bg-muted/50">
-              <td className="px-4 py-3 font-semibold text-sm text-primary">Total quotidien</td>
-              {weekDays.map((date) => {
-                const total = colTotal(date);
-                const isFull = total >= MAX_HOURS_PER_DAY;
-                return (
-                  <td key={date} className={`text-center px-2 py-3 font-semibold text-sm ${isFull ? "text-secondary" : "text-primary"}`}>
-                    {total}h / {MAX_HOURS_PER_DAY}h
-                  </td>
-                );
-              })}
-              <td className={`text-center px-3 py-3 font-bold text-sm ${grandTotal >= MAX_HOURS_PER_WEEK ? "text-secondary" : "text-primary"}`}>
-                {grandTotal}h / {MAX_HOURS_PER_WEEK}h
-              </td>
-            </tr>
-          </tfoot>
         </table>
+      </div>
+
+      {/* Barre de totaux collée en bas de l'écran */}
+      <div className="sticky bottom-0 z-20 -mx-8 -mb-8 mt-6 px-8 py-3 border-t border-border bg-card/95 backdrop-blur-sm flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span className="text-muted-foreground text-xs uppercase tracking-wide mr-1">Total quotidien</span>
+            {DAYS_LABELS.map((label, i) => {
+              const total = colTotal(weekDays[i]);
+              const isFull = total >= MAX_HOURS_PER_DAY;
+              return (
+                <span key={label} className={isFull ? "text-secondary" : "text-primary"}>
+                  {label} {total}h
+                </span>
+              );
+            })}
+          </div>
+          <span className={`text-sm font-medium px-4 py-2 rounded-lg ${grandTotal >= MAX_HOURS_PER_WEEK ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}`}>
+            Total : {grandTotal}h / {MAX_HOURS_PER_WEEK}h
+          </span>
+        </div>
+        <Button className="rounded-lg" onClick={handleSave} disabled={saving}>
+          {saving
+            ? <><Loader2 size={14} className="mr-2 animate-spin" />Sauvegarde…</>
+            : "Sauvegarder"
+          }
+        </Button>
       </div>
 
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
