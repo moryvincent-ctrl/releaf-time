@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Clock,
   User,
-  Leaf,
   Settings,
   BarChart3,
   Shield,
@@ -56,11 +55,12 @@ const AppLayout = ({ children, role }: AppLayoutProps) => {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 bg-primary flex flex-col flex-shrink-0 h-screen">
-        <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
-          <Leaf size={24} className="text-secondary" />
-          <span className="font-heading font-semibold text-lg text-sidebar-foreground">
-            Releaf <span className="font-normal">Time</span>
-          </span>
+        <div className="flex items-center px-5 py-5 border-b border-sidebar-border">
+          <img
+            src="/logo/badge-bc-releaf.png"
+            alt="Releaf Time"
+            className="h-9 w-auto"
+          />
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
