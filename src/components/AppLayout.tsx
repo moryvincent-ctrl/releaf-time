@@ -55,11 +55,11 @@ const AppLayout = ({ children, role }: AppLayoutProps) => {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="w-60 bg-primary flex flex-col flex-shrink-0 h-screen">
-        <div className="flex items-center px-5 py-5 border-b border-sidebar-border">
+        <div className="flex items-center justify-center px-4 py-6 border-b border-sidebar-border">
           <img
             src="/logo/badge-bc-releaf.png"
             alt="Releaf Time"
-            className="h-9 w-auto"
+            className="w-4/5 h-auto"
           />
         </div>
 
