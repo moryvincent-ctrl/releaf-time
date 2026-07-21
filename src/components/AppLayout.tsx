@@ -57,7 +57,7 @@ const AppLayout = ({ children, role }: AppLayoutProps) => {
       <aside className="w-60 bg-primary flex flex-col flex-shrink-0 h-screen">
         <div className="flex items-center justify-center px-4 border-b border-sidebar-border">
           <img
-            src="/logo/badge-bc-releaf.png"
+            src="/logo/badge-bc-releaf-v2.png"
             alt="Releaf Time"
             className="w-4/5 h-auto"
           />
