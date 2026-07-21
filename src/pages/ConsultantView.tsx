@@ -452,7 +452,7 @@ const ConsultantView = () => {
       </div>
 
       {/* Barre de totaux collée en bas — colonnes alignées sur la grille de saisie */}
-      <div className="sticky bottom-0 z-20 -mx-8 -mb-8 mt-6 px-8 border-t-2 border-secondary bg-secondary/15 backdrop-blur-sm">
+      <div className="sticky -bottom-7 z-20 -mx-8 -mb-8 mt-6 px-8 border-t-2 border-secondary bg-secondary/15 backdrop-blur-sm">
         <table className="w-full table-fixed">
           <GridCols />
           <tbody>
