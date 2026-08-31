@@ -54,12 +54,18 @@ export function useTimeEntries(weekStart: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("time_entries")
-        .select("*, mission:missions(id, name, client, pole)")
+        // Les jointures transverse_project / proposal servent à libeller les saisies
+        // dont la ligne n'est plus affichée dans la grille (cf. hiddenHours).
+        .select(
+          "*, mission:missions(id, name, client, pole, status), " +
+          "transverse_project:transverse_projects(id, name), " +
+          "proposal:proposals(id, name)"
+        )
         .eq("user_id", user!.id)
         .eq("week_start", weekStart);
 
       if (error) throw error;
-      return data as (TimeEntry & { mission?: { id: string; name: string; client: string; pole: string } })[];
+      return data as TimeEntry[];
     },
     enabled: !!user,
   });
@@ -105,8 +111,9 @@ export function useAssignedMissions() {
 }
 
 // Missions sélectionnables pour un ajout ponctuel depuis ConsultantView :
-// les missions en cours (sur lesquelles on n'est pas forcément staffé) ET les
-// missions terminées (statut Notion "Terminé"), pour pouvoir saisir du temps a posteriori.
+// uniquement les missions EN COURS (on n'est pas forcément staffé dessus).
+// Une mission passée "Terminée" dans Notion sort définitivement du tableau de
+// saisie — elle ne doit plus être proposée à l'ajout.
 export function useActiveMissions() {
   return useQuery({
     queryKey: ["active_missions"],
@@ -114,7 +121,7 @@ export function useActiveMissions() {
       const { data, error } = await supabase
         .from("missions")
         .select("id, name, client, pole, nature_mission, status")
-        .in("status", ["active", "completed"])
+        .eq("status", "active")
         .order("client", { ascending: true });
       if (error) throw error;
       return data ?? [];

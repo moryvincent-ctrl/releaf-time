@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, MessageSquare, Loader2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare, Loader2, Plus, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   getWeekDays,
   formatWeekLabel,
 } from "@/hooks/useTimeEntries";
-import type { InternalCategory } from "@/lib/database.types";
+import type { InternalCategory, TimeEntry } from "@/lib/database.types";
 import { toast } from "sonner";
 
 const INTERNAL_CATEGORIES: InternalCategory[] = [
@@ -48,6 +48,29 @@ const missionKey = (id: string) => `mission:${id}`;
 const internalKey = (cat: string) => `internal:${cat}`;
 const transverseKey = (id: string) => `transverse:${id}`;
 const proposalKey = (id: string) => `proposal:${id}`;
+
+// Clé de grille correspondant à une saisie. Source unique de vérité, utilisée à la
+// fois pour remplir la grille et pour repérer les saisies dont la ligne n'est plus
+// affichée (mission clôturée, propale close, projet transverse archivé).
+const entryKey = (entry: TimeEntry): string | null => {
+  if (entry.mission_id) return missionKey(entry.mission_id);
+  if (entry.transverse_project_id) return transverseKey(entry.transverse_project_id);
+  if (entry.proposal_id) return proposalKey(entry.proposal_id);
+  if (entry.internal_category) return internalKey(entry.internal_category);
+  return null;
+};
+
+// Libellé lisible d'une saisie orpheline, pour le bandeau de rappel.
+const entryLabel = (entry: TimeEntry): string => {
+  if (entry.mission_id) {
+    const m = entry.mission;
+    if (!m) return "Mission clôturée";
+    return m.client && m.name ? `${m.client} — ${m.name}` : (m.client || m.name || "Mission clôturée");
+  }
+  if (entry.transverse_project_id) return entry.transverse_project?.name ?? "Projet transverse archivé";
+  if (entry.proposal_id) return entry.proposal?.name ?? "Propale close";
+  return entry.internal_category ?? "Ligne inconnue";
+};
 
 const ConsultantView = () => {
   const today = new Date();
@@ -126,11 +149,7 @@ const ConsultantView = () => {
   useEffect(() => {
     const newGrid: GridState = {};
     for (const entry of entries) {
-      let key: string | null = null;
-      if (entry.mission_id) key = missionKey(entry.mission_id);
-      else if ((entry as any).transverse_project_id) key = transverseKey((entry as any).transverse_project_id);
-      else if ((entry as any).proposal_id) key = proposalKey((entry as any).proposal_id);
-      else if (entry.internal_category) key = internalKey(entry.internal_category);
+      const key = entryKey(entry);
       if (!key) continue;
       if (!newGrid[key]) newGrid[key] = {};
       newGrid[key][entry.entry_date] = {
@@ -167,6 +186,32 @@ const ConsultantView = () => {
   };
 
   const grandTotal = weekDays.reduce((sum, d) => sum + colTotal(d), 0);
+
+  // Heures saisies sur la semaine affichée dont la ligne n'apparaît plus dans la
+  // grille : mission passée "Terminée" dans Notion, propale close, projet transverse
+  // archivé. Ces saisies restent en base et comptent dans les dashboards — on les
+  // signale ici pour que le total de la semaine reste lisible.
+  const hiddenHours = useMemo(() => {
+    const visible = new Set<string>([
+      ...assignedMissions.map((m: any) => missionKey(m.id)),
+      ...INTERNAL_CATEGORIES.map((c) => internalKey(c)),
+      ...transverseProjects.map((p: any) => transverseKey(p.id)),
+      ...myProposals.map((p: any) => proposalKey(p.id)),
+    ]);
+
+    const byLabel = new Map<string, number>();
+    let total = 0;
+    for (const entry of entries) {
+      const key = entryKey(entry);
+      if (!key || visible.has(key)) continue;
+      const hours = Number(entry.hours) || 0;
+      if (hours <= 0) continue;
+      total += hours;
+      const label = entryLabel(entry);
+      byLabel.set(label, (byLabel.get(label) ?? 0) + hours);
+    }
+    return { total, lines: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]) };
+  }, [entries, assignedMissions, transverseProjects, myProposals]);
 
   const saveGrid = async (opts: { silent?: boolean } = {}) => {
     setSaving(true);
@@ -341,6 +386,29 @@ const ConsultantView = () => {
         </div>
       </div>
 
+      {hiddenHours.total > 0 && (
+        <div className="mb-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <Info size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="text-foreground">
+                <span className="font-semibold">{hiddenHours.total}h</span> saisies cette semaine sur des
+                lignes clôturées, non comptées dans le total ci-dessous.
+              </p>
+              <ul className="mt-1 text-xs text-muted-foreground">
+                {hiddenHours.lines.map(([label, hours]) => (
+                  <li key={label}>{label} — {hours}h</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ces heures restent enregistrées et comptent dans les tableaux de bord. Pour les
+                modifier, il faut rouvrir la mission côté Notion.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-card rounded-lg border border-border overflow-hidden">
         <table className="w-full table-fixed">
           <GridCols />
@@ -493,7 +561,7 @@ const ConsultantView = () => {
             <DialogTitle>Ajouter une mission ponctuelle</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Sélectionne une mission en cours sur laquelle tu n'es pas staffé, ou une mission déjà terminée, pour pouvoir saisir du temps dessus. Elle restera sur ta grille tant qu'elle contient au moins une saisie.
+            Sélectionne une mission en cours sur laquelle tu n'es pas staffé pour pouvoir saisir du temps dessus. Elle restera sur ta grille tant qu'elle est en cours — une mission passée "Terminée" dans Notion en sort automatiquement.
           </p>
           <Input
             autoFocus
@@ -520,11 +588,6 @@ const ConsultantView = () => {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">{m.client}</span>
-                    {m.status === "completed" && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        Terminé
-                      </span>
-                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {m.name}{m.nature_mission ? ` · ${m.nature_mission}` : ""}
