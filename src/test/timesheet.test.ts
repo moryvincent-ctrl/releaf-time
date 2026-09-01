@@ -133,3 +133,56 @@ describe("computeHiddenHours — agrégation", () => {
     expect(res.lines).toEqual([["Mission clôturée", 5]]);
   });
 });
+
+describe("computeHiddenHours — ventilation par jour", () => {
+  // La barre de totaux doit afficher le temps réellement saisi. Elle additionne
+  // les lignes affichées et byDate[jour], d'où le besoin d'une ventilation.
+  it("ventile les heures masquées par date", () => {
+    const res = computeHiddenHours(
+      [
+        entry({ mission_id: FDA.id, mission: FDA as any, entry_date: "2025-08-11", hours: 7 }),
+        entry({ mission_id: FDA.id, mission: FDA as any, entry_date: "2025-08-12", hours: 3 }),
+        entry({ proposal_id: "p1", proposal: { id: "p1", name: "Propale" } as any, entry_date: "2025-08-12", hours: 2 }),
+      ],
+      VISIBLE_NOW,
+    );
+
+    expect(res.byDate).toEqual({ "2025-08-11": 7, "2025-08-12": 5 });
+    // La ventilation est cohérente avec le total affiché dans le bandeau.
+    expect(Object.values(res.byDate).reduce((a, b) => a + b, 0)).toBe(res.total);
+  });
+
+  it("n'inscrit aucune date pour les lignes affichées", () => {
+    const res = computeHiddenHours(
+      [
+        entry({ mission_id: "mission-encore-active", entry_date: "2025-08-11", hours: 7 }),
+        entry({ internal_category: "Administratif" as any, entry_date: "2025-08-12", hours: 3 }),
+      ],
+      VISIBLE_NOW,
+    );
+
+    expect(res.byDate).toEqual({});
+    expect(res.total).toBe(0);
+  });
+
+  it("reconstitue le total réel de la semaine : 10h visibles + 17h masquées = 27h", () => {
+    const visibles = [
+      entry({ mission_id: "mission-encore-active", entry_date: "2025-08-11", hours: 6 }),
+      entry({ internal_category: "Administratif" as any, entry_date: "2025-08-12", hours: 4 }),
+    ];
+    const masquees = [
+      entry({ mission_id: FDA.id, mission: FDA as any, entry_date: "2025-08-11", hours: 8 }),
+      entry({ mission_id: FDA.id, mission: FDA as any, entry_date: "2025-08-13", hours: 9 }),
+    ];
+
+    const res = computeHiddenHours([...visibles, ...masquees], VISIBLE_NOW);
+
+    const totalVisible = visibles.reduce((s, e) => s + Number(e.hours), 0);
+    expect(totalVisible).toBe(10);
+    expect(res.total).toBe(17);
+    expect(totalVisible + res.total).toBe(27);
+    // Les totaux de colonne réintègrent bien les heures masquées jour par jour.
+    expect(res.byDate["2025-08-11"]).toBe(8);
+    expect(res.byDate["2025-08-13"]).toBe(9);
+  });
+});

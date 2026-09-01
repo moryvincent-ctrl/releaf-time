@@ -156,32 +156,33 @@ const ConsultantView = () => {
   const rowTotal = (key: string) =>
     weekDays.reduce((sum, d) => sum + (getCell(key, d).hours || 0), 0);
 
-  const colTotal = (date: string) => {
-    const allKeys = [
+  // Lignes réellement affichées dans la grille. Sert à la fois aux totaux de
+  // colonne et à la détection des saisies dont la ligne a disparu.
+  const visibleKeys = useMemo(
+    () => [
       ...assignedMissions.map((m: any) => missionKey(m.id)),
       ...INTERNAL_CATEGORIES.map((c) => internalKey(c)),
       ...transverseProjects.map((p: any) => transverseKey(p.id)),
       ...myProposals.map((p: any) => proposalKey(p.id)),
-    ];
-    return allKeys.reduce((sum, k) => sum + (getCell(k, date).hours || 0), 0);
-  };
-
-  const grandTotal = weekDays.reduce((sum, d) => sum + colTotal(d), 0);
+    ],
+    [assignedMissions, transverseProjects, myProposals],
+  );
 
   // Heures saisies sur la semaine affichée dont la ligne n'apparaît plus dans la
   // grille : mission passée "Terminée" dans Notion, propale close, projet transverse
-  // archivé. Ces saisies restent en base et comptent dans les dashboards — on les
-  // signale ici pour que le total de la semaine reste lisible.
+  // archivé. Elles ne sont plus modifiables, mais restent du temps réellement saisi :
+  // elles sont donc comptées dans les totaux, et le bandeau en haut explique l'écart.
   const hiddenHours = useMemo(
-    () =>
-      computeHiddenHours(entries, [
-        ...assignedMissions.map((m: any) => missionKey(m.id)),
-        ...INTERNAL_CATEGORIES.map((c) => internalKey(c)),
-        ...transverseProjects.map((p: any) => transverseKey(p.id)),
-        ...myProposals.map((p: any) => proposalKey(p.id)),
-      ]),
-    [entries, assignedMissions, transverseProjects, myProposals],
+    () => computeHiddenHours(entries, visibleKeys),
+    [entries, visibleKeys],
   );
+
+  // Total du jour = lignes affichées + heures masquées de ce jour.
+  const colTotal = (date: string) =>
+    visibleKeys.reduce((sum, k) => sum + (getCell(k, date).hours || 0), 0) +
+    (hiddenHours.byDate[date] ?? 0);
+
+  const grandTotal = weekDays.reduce((sum, d) => sum + colTotal(d), 0);
 
   const saveGrid = async (opts: { silent?: boolean } = {}) => {
     setSaving(true);
@@ -362,8 +363,8 @@ const ConsultantView = () => {
             <Info size={16} className="text-muted-foreground mt-0.5 shrink-0" />
             <div className="text-sm">
               <p className="text-foreground">
-                <span className="font-semibold">{hiddenHours.total}h</span> saisies cette semaine sur des
-                lignes clôturées, non comptées dans le total ci-dessous.
+                <span className="font-semibold">{hiddenHours.total}h</span> du total de la semaine ont été
+                saisies sur des lignes clôturées, qui ne sont plus modifiables ici.
               </p>
               <ul className="mt-1 text-xs text-muted-foreground">
                 {hiddenHours.lines.map(([label, hours]) => (
@@ -502,6 +503,12 @@ const ConsultantView = () => {
                     {grandTotal}h / {MAX_HOURS_PER_WEEK}h
                   </span>
                 </div>
+                {hiddenHours.total > 0 && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    dont <span className="font-semibold">{hiddenHours.total}h</span> sur des lignes
+                    clôturées, non modifiables ici — détail en haut de page
+                  </div>
+                )}
               </td>
               {DAYS_LABELS.map((label, i) => {
                 const total = colTotal(weekDays[i]);

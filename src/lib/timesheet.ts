@@ -31,6 +31,8 @@ export const entryLabel = (entry: TimeEntry): string => {
 export interface HiddenHours {
   total: number;
   lines: [string, number][];
+  /** Heures masquées par date (YYYY-MM-DD), pour réintégrer les totaux de colonne. */
+  byDate: Record<string, number>;
 }
 
 // Heures d'un lot de saisies dont la ligne n'apparaît pas dans la grille.
@@ -45,6 +47,7 @@ export function computeHiddenHours(
 ): HiddenHours {
   const visible = new Set(visibleKeys);
   const byLabel = new Map<string, number>();
+  const byDate: Record<string, number> = {};
   let total = 0;
 
   for (const entry of entries) {
@@ -55,10 +58,12 @@ export function computeHiddenHours(
     total += hours;
     const label = entryLabel(entry);
     byLabel.set(label, (byLabel.get(label) ?? 0) + hours);
+    byDate[entry.entry_date] = (byDate[entry.entry_date] ?? 0) + hours;
   }
 
   return {
     total,
     lines: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]),
+    byDate,
   };
 }
