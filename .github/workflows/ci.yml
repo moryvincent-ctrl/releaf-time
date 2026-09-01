@@ -2,13 +2,17 @@ name: Mirror to org
 on:
   push:
     branches: ['**']
-  delete:
 
 jobs:
   mirror:
+    # Ce workflow fait partie des fichiers recopiés sur le miroir. Sans ce garde-fou
+    # il se redéclenche donc sur ReleafCarbon/ReleafTime à chaque push reçu — où le
+    # secret MIRROR_SSH_KEY n'existe pas — et échoue systématiquement avec
+    # "Permission denied (publickey)" puis exit 128. On ne mirroite que depuis la source.
+    if: github.repository == 'moryvincent-ctrl/releaf-time'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Setup SSH
