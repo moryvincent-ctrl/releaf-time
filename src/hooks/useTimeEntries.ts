@@ -3,18 +3,31 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { TimeEntry, InternalCategory } from "@/lib/database.types";
 
+// Formate une date en YYYY-MM-DD à partir de ses composantes LOCALES.
+//
+// Ne jamais utiliser toISOString() ici : il convertit en UTC, donc à l'est de
+// Greenwich une date entre minuit et l'offset (00h–02h à Paris en été) recule
+// d'un jour. Un week_start calculé ainsi tombait au dimanche, et comme
+// useTimeEntries filtre en .eq("week_start", …), la saisie devenait invisible.
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // Calcule le lundi de la semaine pour une date donnée
 export function getWeekStart(date: Date): string {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   d.setDate(diff);
-  return d.toISOString().split("T")[0];
+  return formatLocalDate(d);
 }
 
 // Formate une date en YYYY-MM-DD
 export function toDateString(date: Date): string {
-  return date.toISOString().split("T")[0];
+  return formatLocalDate(date);
 }
 
 // Retourne les 5 jours ouvrés (lun→ven) d'une semaine

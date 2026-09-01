@@ -5,8 +5,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// URL de l'app (overridable via env)
-const APP_URL = Deno.env.get("APP_URL") ?? "https://releaf-time.vercel.app";
+// URL de l'app (overridable via env). Le repli pointe sur la prod actuelle (VPS
+// Scaleway) — l'ancienne URL Vercel n'est plus servie et renvoyait les destinataires
+// du rappel hebdo vers une page morte si APP_URL n'était pas défini.
+const APP_URL = Deno.env.get("APP_URL") ?? "https://time.releafcarbon.com";
 // Adresse expéditrice — utilise resend.dev par défaut si aucun domaine vérifié
 const FROM_EMAIL = Deno.env.get("REMINDER_FROM") ?? "Releaf Time <onboarding@resend.dev>";
 
