@@ -58,14 +58,18 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Le staffing est ouvert à tous les rôles : le consultant n'y voit
+                que sa propre colonne (cf. StaffingView). L'ancienne URL /admin/staffing
+                reste valide pour les liens et favoris existants. */}
             <Route
-              path="/admin/staffing"
+              path="/staffing"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["consultant", "manager", "admin"]}>
                   <StaffingView />
                 </ProtectedRoute>
               }
             />
+            <Route path="/admin/staffing" element={<Navigate to="/staffing" replace />} />
             <Route
               path="/missions"
               element={

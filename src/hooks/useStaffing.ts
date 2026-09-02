@@ -80,15 +80,35 @@ export function absenceBusinessDaysInMonth(begin: string, end: string, month: st
 
 export type StaffingProfile = { id: string; full_name: string; role: Role };
 
-// Tous les profils (toutes typologies : admin / manager / consultant).
-export function useStaffingProfiles() {
+// Anciens collaborateurs à exclure du staffing prévisionnel (ont quitté l'entreprise).
+const norm = (s: string) => (s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+const DEPARTED = new Set(["hugo astier", "juliette blanc"]);
+
+// Colonnes du staffing selon le rôle : admin et manager planifient toute l'équipe
+// (hors partants), le consultant n'a que sa propre colonne. Tant que son profil
+// n'est pas chargé (userId null), on ne renvoie personne plutôt que tout le monde.
+export function staffingPeopleFor(
+  profiles: StaffingProfile[],
+  role: Role | undefined,
+  userId: string | null | undefined,
+): StaffingProfile[] {
+  if (role !== "admin" && role !== "manager") {
+    return userId ? profiles.filter((p) => p.id === userId) : [];
+  }
+  return [...profiles]
+    .filter((p) => !DEPARTED.has(norm(p.full_name)))
+    .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+}
+
+// Profils staffables. `scopeToUserId` restreint la requête à une seule personne :
+// le consultant ne récupère alors pas les noms de ses collègues.
+export function useStaffingProfiles(scopeToUserId?: string | null) {
   return useQuery({
-    queryKey: ["staffing_profiles"],
+    queryKey: ["staffing_profiles", scopeToUserId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .order("full_name", { ascending: true });
+      let q = supabase.from("profiles").select("id, full_name, role");
+      if (scopeToUserId) q = q.eq("id", scopeToUserId);
+      const { data, error } = await q.order("full_name", { ascending: true });
       if (error) throw error;
       return (data ?? []) as StaffingProfile[];
     },

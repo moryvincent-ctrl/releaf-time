@@ -16,18 +16,20 @@ const roleNavItems: Record<Role, { label: string; path: string; icon: any }[]> =
   consultant: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
+    { label: "Staffing", path: "/staffing", icon: CalendarRange },
     { label: "Mon compte", path: "/account", icon: User },
   ],
   manager: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
+    { label: "Staffing", path: "/staffing", icon: CalendarRange },
     { label: "Mon compte", path: "/account", icon: User },
   ],
   admin: [
     { label: "Mes temps", path: "/consultant", icon: Clock },
     { label: "Mon tableau de bord", path: "/consultant/dashboard", icon: BarChart3 },
     { label: "Vue globale", path: "/admin", icon: Shield },
-    { label: "Staffing", path: "/admin/staffing", icon: CalendarRange },
+    { label: "Staffing", path: "/staffing", icon: CalendarRange },
     { label: "Mon compte", path: "/account", icon: User },
     { label: "Paramètres", path: "/settings", icon: Settings },
   ],

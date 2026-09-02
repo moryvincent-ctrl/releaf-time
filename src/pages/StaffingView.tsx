@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, ChevronRight, Plus, Loader2, LayoutGrid, BarChart3, Users, X, Check, Eye, EyeOff } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import AppLayout from "@/components/AppLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useStaffingProfiles,
   useStaffableMissions,
@@ -24,6 +25,7 @@ import {
   formatMonthLabel,
   businessDaysInMonth,
   absenceBusinessDaysInMonth,
+  staffingPeopleFor,
 } from "@/hooks/useStaffing";
 import type { MissionPole } from "@/lib/database.types";
 import { toast } from "sonner";
@@ -38,10 +40,6 @@ const POLES: MissionPole[] = [
 ];
 
 const MAX_DAYS_PER_CELL = 31;
-
-// Anciens collaborateurs à exclure du staffing prévisionnel (ont quitté l'entreprise).
-const norm = (s: string) => (s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
-const DEPARTED = new Set(["hugo astier", "juliette blanc"]);
 
 const missionTarget = (id: string) => `mission:${id}`;
 const transverseTarget = (id: string) => `transverse:${id}`;
@@ -89,6 +87,11 @@ function DayCell({ value, max, onCommit }: { value: number; max: number; onCommi
 }
 
 const StaffingView = () => {
+  // Périmètre selon le rôle : admin et manager planifient tout le monde et
+  // accèdent au récap ; le consultant ne voit et ne saisit que sa propre colonne.
+  const { profile } = useAuth();
+  const isPlanner = profile?.role === "admin" || profile?.role === "manager";
+
   const today = new Date();
   const [monthsCount, setMonthsCount] = useState(3);
   const [startMonth, setStartMonth] = useState(monthStart(today));
@@ -113,7 +116,7 @@ const StaffingView = () => {
   const firstMonth = months[0];
   const lastMonth = months[months.length - 1];
 
-  const { data: profiles = [] } = useStaffingProfiles();
+  const { data: profiles = [] } = useStaffingProfiles(isPlanner ? null : profile?.id);
   const { data: missions = [] } = useStaffableMissions();
   const { data: transverse = [] } = useStaffableTransverse();
   const { data: allocations = [], isLoading } = useStaffingAllocations(firstMonth, lastMonth);
@@ -141,11 +144,8 @@ const StaffingView = () => {
 
   // ─── Personnes (colonnes) — toutes typologies, ordre stable ──────────────────
   const people = useMemo(
-    () =>
-      [...profiles]
-        .filter((p: any) => !DEPARTED.has(norm(p.full_name)))
-        .sort((a: any, b: any) => (a.full_name ?? "").localeCompare(b.full_name ?? "")),
-    [profiles]
+    () => staffingPeopleFor(profiles, profile?.role, profile?.id),
+    [profiles, profile?.role, profile?.id]
   );
 
   // Collaborateurs masqués (colonnes retirées du tableau pour alléger la vue)
@@ -483,26 +483,28 @@ const StaffingView = () => {
   return (
     <AppLayout>
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
-        <h2 className="text-xl font-heading font-semibold text-primary">Staffing prévisionnel</h2>
+        <h2 className="text-xl font-heading font-semibold text-primary">{isPlanner ? "Staffing prévisionnel" : "Mon staffing prévisionnel"}</h2>
         <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            <Button
-              variant={view === "grid" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-md h-7"
-              onClick={() => switchView("grid")}
-            >
-              <LayoutGrid size={14} className="mr-1" /> Grille
-            </Button>
-            <Button
-              variant={view === "recap" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-md h-7"
-              onClick={() => switchView("recap")}
-            >
-              <BarChart3 size={14} className="mr-1" /> Récap
-            </Button>
-          </div>
+          {isPlanner && (
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <Button
+                variant={view === "grid" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-md h-7"
+                onClick={() => switchView("grid")}
+              >
+                <LayoutGrid size={14} className="mr-1" /> Grille
+              </Button>
+              <Button
+                variant={view === "recap" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-md h-7"
+                onClick={() => switchView("recap")}
+              >
+                <BarChart3 size={14} className="mr-1" /> Récap
+              </Button>
+            </div>
+          )}
           <span className="text-xs text-muted-foreground flex items-center gap-1.5 h-4">
             {view === "grid" && (
               saving ? (
@@ -517,7 +519,9 @@ const StaffingView = () => {
         </div>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
-        {view === "grid"
+        {!isPlanner
+          ? "Planifie combien de jours tu prévois de passer sur chaque mission / projet transverse, mois par mois."
+          : view === "grid"
           ? "Planifie qui passe combien de jours sur chaque mission / projet transverse, mois par mois."
           : "Récapitulatif de la charge de chacun sur la période, sur les missions et projets où du temps a été saisi."}
       </p>
@@ -567,6 +571,7 @@ const StaffingView = () => {
             {hideOnHold ? <Eye size={14} className="mr-1" /> : <EyeOff size={14} className="mr-1" />}
             {hideOnHold ? "Afficher en attente" : "Masquer en attente"}
           </Button>
+          {isPlanner && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="rounded-lg h-8">
@@ -602,6 +607,7 @@ const StaffingView = () => {
               </div>
             </PopoverContent>
           </Popover>
+          )}
           <Button variant={mode === "preset" && monthsCount === 3 ? "default" : "outline"} size="sm" className="rounded-lg h-8" onClick={() => selectPreset(3)}>
             3 mois
           </Button>
@@ -614,7 +620,7 @@ const StaffingView = () => {
         </div>
       </div>
 
-      {view === "grid" && (<>
+      {(!isPlanner || view === "grid") && (<>
       <div className="bg-card rounded-lg border border-border overflow-x-auto w-fit max-w-full">
         <table className="border-collapse">
           <thead>
@@ -640,13 +646,15 @@ const StaffingView = () => {
                 visiblePeople.map((p: any, pi: number) => (
                   <th key={m + p.id} className={`p-0 align-bottom ${monthBorder(pi)}`}>
                     <div className="group h-20 flex flex-col items-center justify-end relative">
-                      <button
-                        onClick={() => toggleHidden(p.id)}
-                        className="absolute top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        title={`Masquer ${firstName(p.full_name)}`}
-                      >
-                        <X size={11} />
-                      </button>
+                      {isPlanner && (
+                        <button
+                          onClick={() => toggleHidden(p.id)}
+                          className="absolute top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          title={`Masquer ${firstName(p.full_name)}`}
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
                       <span
                         className="text-[11px] text-muted-foreground whitespace-nowrap pb-1 pt-2"
                         style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
@@ -667,20 +675,22 @@ const StaffingView = () => {
             {visibleMissionTargets.length === 0
               ? emptyNote(hideOnHold ? "Aucune mission en cours" : "Aucune mission en cours ou en attente")
               : visibleMissionTargets.map(renderTargetRow)}
-            <tr className="border-b border-border">
-              <td colSpan={totalCols} className="p-0">
-                <div className="sticky left-0 w-fit px-4 py-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
-                    onClick={() => setAddOpen(true)}
-                  >
-                    <Plus size={12} className="mr-1" /> Ajouter une mission
-                  </Button>
-                </div>
-              </td>
-            </tr>
+            {isPlanner && (
+              <tr className="border-b border-border">
+                <td colSpan={totalCols} className="p-0">
+                  <div className="sticky left-0 w-fit px-4 py-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground text-xs h-7 px-2 hover:text-secondary"
+                      onClick={() => setAddOpen(true)}
+                    >
+                      <Plus size={12} className="mr-1" /> Ajouter une mission
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            )}
             {visiblePeople.length > 0 && visibleMissionTargets.length > 0 && sectionSubtotalRow("Total missions / personne", visibleMissionTargets)}
 
             {/* ── Projets transverses ── */}
@@ -721,11 +731,13 @@ const StaffingView = () => {
         </table>
       </div>
       <p className="text-xs text-muted-foreground mt-2">
-        Chaque colonne = une personne (prénom à la verticale) sous le mois concerné. Ligne <span className="font-medium">Charge</span> : total de jours planifiés par personne et par mois. La charge mensuelle d'une personne ne peut pas dépasser les jours ouvrés du mois.
+        {isPlanner
+          ? <>Chaque colonne = une personne (prénom à la verticale) sous le mois concerné. Ligne <span className="font-medium">Charge</span> : total de jours planifiés par personne et par mois. La charge mensuelle d'une personne ne peut pas dépasser les jours ouvrés du mois.</>
+          : <>Une colonne par mois. Ligne <span className="font-medium">Charge</span> : total de tes jours planifiés sur le mois. Il ne peut pas dépasser les jours ouvrés du mois, congés Payfit déduits.</>}
       </p>
       </>)}
 
-      {view === "recap" && (
+      {isPlanner && view === "recap" && (
         <div className="space-y-8">
           {/* ── Charge par personne ── */}
           <div>
