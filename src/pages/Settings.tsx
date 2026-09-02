@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Link2, Loader2, CheckCircle, AlertCircle, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, Link2, Loader2, CheckCircle, AlertCircle, Save, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +47,29 @@ function useProfiles() {
       if (error) throw error;
       return data as Profile[];
     },
+  });
+}
+
+// Fraîcheur des congés Payfit : la table n'a pas de ligne de config, on lit
+// simplement le synced_at le plus récent. Résilient (RLS / table absente) : null.
+function usePayfitLastSync() {
+  return useQuery({
+    queryKey: ["payfit_last_sync"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("payfit_absences")
+          .select("synced_at")
+          .order("synced_at", { ascending: false })
+          .limit(1);
+        if (error) return null;
+        const row = (data ?? [])[0] as { synced_at?: string } | undefined;
+        return row?.synced_at ?? null;
+      } catch {
+        return null;
+      }
+    },
+    refetchInterval: 60_000,
   });
 }
 
@@ -135,6 +158,7 @@ const Settings = () => {
   const queryClient = useQueryClient();
   const { data: notionSettings, isLoading: loadingSettings } = useNotionSettings();
   const { data: profiles = [], isLoading: loadingProfiles } = useProfiles();
+  const { data: payfitLastSync } = usePayfitLastSync();
 
   const [dbId, setDbId] = useState("");
   const [propNames, setPropNames] = useState<PropNames>(DEFAULT_PROP_NAMES);
@@ -156,6 +180,10 @@ const Settings = () => {
   const [savingProposalsConfig, setSavingProposalsConfig] = useState(false);
   const [proposalsSyncResult, setProposalsSyncResult] = useState<{ success: boolean; synced?: number; closed?: number; skipped?: number; total?: number; error?: string } | null>(null);
   const [proposalsSyncing, setProposalsSyncing] = useState(false);
+
+  // Congés Payfit
+  const [payfitSyncResult, setPayfitSyncResult] = useState<{ success: boolean; absences?: number; mappedToProfiles?: number; unmapped?: number; error?: string } | null>(null);
+  const [payfitSyncing, setPayfitSyncing] = useState(false);
 
   // Pré-remplit les champs depuis la BDD
   useEffect(() => {
@@ -250,6 +278,24 @@ const Settings = () => {
       setProposalsSyncResult({ success: false, error: err.message });
     } finally {
       setProposalsSyncing(false);
+    }
+  };
+
+  const handlePayfitSync = async () => {
+    setPayfitSyncing(true);
+    setPayfitSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-payfit-absences");
+      if (error) throw error;
+      // L'Edge Function renvoie 200 avec { error } en cas d'échec applicatif.
+      if (data?.error) throw new Error(data.error);
+      setPayfitSyncResult(data);
+      queryClient.invalidateQueries({ queryKey: ["payfit_absences"] });
+      queryClient.invalidateQueries({ queryKey: ["payfit_last_sync"] });
+    } catch (err: any) {
+      setPayfitSyncResult({ success: false, error: err.message });
+    } finally {
+      setPayfitSyncing(false);
     }
   };
 
@@ -573,6 +619,63 @@ const Settings = () => {
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="text-destructive mt-0.5 shrink-0" />
                 <span className="text-destructive">{proposalsSyncResult.error ?? "Erreur inconnue"}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Payfit Sync — Congés ── */}
+      <div className="bg-card rounded-lg border border-border p-6 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <CalendarDays size={20} className="text-secondary" />
+          <h3 className="font-heading font-semibold text-primary">Synchronisation Payfit — Congés</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Importe les absences approuvées depuis Payfit et les rattache aux profils Releaf par email pro.
+          Elles sont déduites de la capacité dans le staffing prévisionnel. La clé est stockée côté serveur
+          (Edge Function secret <code className="font-mono">PAYFIT_API_KEY</code>). Sync auto toutes les heures.
+        </p>
+
+        <div className="flex items-center gap-3 mb-4">
+          <Button
+            className="rounded-lg"
+            onClick={handlePayfitSync}
+            disabled={payfitSyncing}
+          >
+            {payfitSyncing
+              ? <><Loader2 size={14} className="mr-2 animate-spin" />Synchronisation…</>
+              : <><RefreshCw size={14} className="mr-2" />Synchroniser les congés</>
+            }
+          </Button>
+
+          {payfitLastSync && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              Dernière sync : {formatDistanceToNow(new Date(payfitLastSync), { addSuffix: true, locale: fr })}
+            </span>
+          )}
+        </div>
+
+        {payfitSyncResult && (
+          <div className={`p-4 rounded-lg text-sm ${payfitSyncResult.success ? "bg-secondary/10" : "bg-destructive/10"}`}>
+            {payfitSyncResult.success ? (
+              <div className="flex items-start gap-2">
+                <CheckCircle size={16} className="text-secondary mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-medium text-secondary">
+                    Synchronisation réussie — {payfitSyncResult.absences} absence{(payfitSyncResult.absences ?? 0) > 1 ? "s" : ""} importée{(payfitSyncResult.absences ?? 0) > 1 ? "s" : ""}
+                  </span>
+                  {(payfitSyncResult.unmapped ?? 0) > 0 && (
+                    <p className="text-muted-foreground mt-1">
+                      {payfitSyncResult.unmapped} absence(s) non rattachée(s) à un profil — vérifie que l'email pro Payfit correspond à l'email du compte Releaf
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-destructive mt-0.5 shrink-0" />
+                <span className="text-destructive">{payfitSyncResult.error ?? "Erreur inconnue"}</span>
               </div>
             )}
           </div>
