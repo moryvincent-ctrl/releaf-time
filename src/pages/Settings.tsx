@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { Profile } from "@/lib/database.types";
+import { toast } from "sonner";
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -298,6 +299,20 @@ const Settings = () => {
       setPayfitSyncing(false);
     }
   };
+
+  // Un départ ne retire que du staffing prévisionnel : les temps déjà saisis
+  // restent visibles dans les tableaux de bord, on ne supprime donc pas le compte.
+  const updateUserActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("profiles").update({ active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["staffing_profiles"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Impossible de changer le statut"),
+  });
 
   const updateUserRole = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: string }) => {
@@ -700,12 +715,13 @@ const Settings = () => {
                 <th className="text-left px-4 py-3 label-uppercase">Nom</th>
                 <th className="text-left px-4 py-3 label-uppercase">Email</th>
                 <th className="text-left px-4 py-3 label-uppercase">Rôle</th>
+                <th className="text-left px-4 py-3 label-uppercase">Statut</th>
               </tr>
             </thead>
             <tbody>
               {profiles.map((u) => (
                 <tr key={u.id} className="border-b border-border last:border-b-0 hover:bg-muted/30">
-                  <td className="px-4 py-3 text-sm font-medium">{u.full_name}</td>
+                  <td className={`px-4 py-3 text-sm font-medium ${u.active === false ? "text-muted-foreground" : ""}`}>{u.full_name}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
                   <td className="px-4 py-3">
                     <select
@@ -716,6 +732,17 @@ const Settings = () => {
                       <option value="consultant">Consultant</option>
                       <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={u.active === false ? "parti" : "present"}
+                      onChange={(e) => updateUserActive.mutate({ id: u.id, active: e.target.value === "present" })}
+                      className="text-xs font-medium px-2 py-1 rounded border border-input bg-card focus:outline-none focus:ring-1 focus:ring-ring"
+                      title="Une personne partie disparaît du staffing prévisionnel ; ses temps déjà saisis restent visibles partout ailleurs."
+                    >
+                      <option value="present">Présent</option>
+                      <option value="parti">Parti</option>
                     </select>
                   </td>
                 </tr>

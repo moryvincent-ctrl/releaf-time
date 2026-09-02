@@ -78,15 +78,15 @@ export function absenceBusinessDaysInMonth(begin: string, end: string, month: st
 
 // ─── Données de référence ────────────────────────────────────────────────────
 
-export type StaffingProfile = { id: string; full_name: string; role: Role };
-
-// Anciens collaborateurs à exclure du staffing prévisionnel (ont quitté l'entreprise).
-const norm = (s: string) => (s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
-const DEPARTED = new Set(["hugo astier", "juliette blanc"]);
+// `active` peut être absent tant que la migration profiles_active.sql n'est pas
+// passée : on traite alors la personne comme présente.
+export type StaffingProfile = { id: string; full_name: string; role: Role; active?: boolean };
 
 // Colonnes du staffing selon le rôle : admin et manager planifient toute l'équipe
-// (hors partants), le consultant n'a que sa propre colonne. Tant que son profil
-// n'est pas chargé (userId null), on ne renvoie personne plutôt que tout le monde.
+// (hors personnes parties), le consultant n'a que sa propre colonne. Tant que son
+// profil n'est pas chargé (userId null), on ne renvoie personne plutôt que tout
+// le monde. On ne planifie plus les partants, mais leurs temps réalisés restent
+// visibles dans les tableaux de bord : le filtre s'arrête à cet écran.
 export function staffingPeopleFor(
   profiles: StaffingProfile[],
   role: Role | undefined,
@@ -96,7 +96,7 @@ export function staffingPeopleFor(
     return userId ? profiles.filter((p) => p.id === userId) : [];
   }
   return [...profiles]
-    .filter((p) => !DEPARTED.has(norm(p.full_name)))
+    .filter((p) => p.active !== false)
     .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
 }
 
@@ -106,11 +106,17 @@ export function useStaffingProfiles(scopeToUserId?: string | null) {
   return useQuery({
     queryKey: ["staffing_profiles", scopeToUserId ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("profiles").select("id, full_name, role");
-      if (scopeToUserId) q = q.eq("id", scopeToUserId);
-      const { data, error } = await q.order("full_name", { ascending: true });
+      const run = async (columns: string) => {
+        let q = supabase.from("profiles").select(columns);
+        if (scopeToUserId) q = q.eq("id", scopeToUserId);
+        return q.order("full_name", { ascending: true });
+      };
+      let { data, error } = await run("id, full_name, role, active");
+      // 42703 = colonne inconnue : la migration profiles_active.sql n'est pas
+      // encore passée. On repart sans elle plutôt que de casser l'écran.
+      if (error?.code === "42703") ({ data, error } = await run("id, full_name, role"));
       if (error) throw error;
-      return (data ?? []) as StaffingProfile[];
+      return (data ?? []) as unknown as StaffingProfile[];
     },
   });
 }

@@ -25,6 +25,9 @@ export interface Profile {
   role: Role;
   avatar_url: string | null;
   created_at: string;
+  // false = a quitté l'entreprise : exclu du staffing prévisionnel, mais ses
+  // temps réalisés restent visibles dans les tableaux de bord.
+  active: boolean;
 }
 
 export interface Mission {
