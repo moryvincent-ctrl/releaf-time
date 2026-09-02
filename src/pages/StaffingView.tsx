@@ -397,6 +397,13 @@ const StaffingView = () => {
   };
 
   const monthBorder = (personIndex: number) => (personIndex === 0 ? "border-l-2 border-border" : "");
+  // Équivalent en box-shadow pour les cellules figées : en border-collapse, une
+  // bordure de cellule sticky n'est plus peinte dès qu'elle se décolle.
+  // Classes écrites en toutes lettres : Tailwind ne détecte pas les noms construits.
+  const monthBorderSticky = (personIndex: number) =>
+    personIndex === 0
+      ? "shadow-[inset_2px_0_0_hsl(var(--border)),inset_0_-1px_0_hsl(var(--border))]"
+      : "shadow-[inset_0_-1px_0_hsl(var(--border))]";
   const totalCols = 2 + months.length * visiblePeople.length;
 
   // ─── Rendu d'une ligne cible ─────────────────────────────────────────────────
@@ -621,30 +628,35 @@ const StaffingView = () => {
       </div>
 
       {(!isPlanner || view === "grid") && (<>
-      <div className="bg-card rounded-lg border border-border overflow-x-auto w-fit max-w-full">
+      <div className="bg-card rounded-lg border border-border overflow-auto w-fit max-w-full max-h-[calc(100vh-16rem)] min-h-[16rem]">
         <table className="border-collapse">
           <thead>
-            <tr className="border-b border-border">
-              <th rowSpan={2} className="sticky left-0 z-20 bg-card text-left px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary min-w-[200px] border-r border-border">
+            <tr>
+              {/* Coin haut-gauche : figé sur les deux axes, donc au-dessus des deux */}
+              <th rowSpan={2} className="sticky left-0 top-0 z-30 bg-card text-left px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary min-w-[200px] shadow-[inset_-1px_0_0_hsl(var(--border)),inset_0_-1px_0_hsl(var(--border))]">
                 Mission / Projet
               </th>
               {months.map((m) => (
                 <th
                   key={m}
                   colSpan={visiblePeople.length}
-                  className="text-center px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary border-l-2 border-border"
+                  className="sticky top-0 z-20 bg-card h-8 text-center px-2 text-xs font-semibold uppercase tracking-wide text-primary shadow-[inset_2px_0_0_hsl(var(--border)),inset_0_-1px_0_hsl(var(--border))]"
                 >
                   {formatMonthLabel(m)}
                 </th>
               ))}
-              <th rowSpan={2} className="text-center px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary border-l border-border">
+              <th rowSpan={2} className="sticky top-0 z-20 bg-card text-center px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary shadow-[inset_1px_0_0_hsl(var(--border)),inset_0_-1px_0_hsl(var(--border))]">
                 Total
               </th>
             </tr>
-            <tr className="border-b border-border">
+            {/* Décalée de la hauteur exacte de la rangée des mois (h-8 = 2rem) */}
+            <tr>
               {months.map((m) =>
                 visiblePeople.map((p: any, pi: number) => (
-                  <th key={m + p.id} className={`p-0 align-bottom ${monthBorder(pi)}`}>
+                  <th
+                    key={m + p.id}
+                    className={`sticky top-8 z-20 bg-card p-0 align-bottom ${monthBorderSticky(pi)}`}
+                  >
                     <div className="group h-20 flex flex-col items-center justify-end relative">
                       {isPlanner && (
                         <button
