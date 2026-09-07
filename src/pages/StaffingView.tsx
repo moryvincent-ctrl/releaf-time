@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Loader2, LayoutGrid, BarChart3, Users, X, Check, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2, LayoutGrid, BarChart3, Users, X, Check, Eye, EyeOff, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import AppLayout from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,7 @@ import {
   absenceBusinessDaysInMonth,
   staffingPeopleFor,
 } from "@/hooks/useStaffing";
+import { downloadStaffingWorkbook, type ExportTarget } from "@/lib/staffingExport";
 import type { MissionPole } from "@/lib/database.types";
 import { toast } from "sonner";
 
@@ -134,6 +135,7 @@ const StaffingView = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [newMission, setNewMission] = useState({ name: "", client: "", pole: POLES[0], status: "active" as "active" | "on_hold" });
   const [view, setView] = useState<"grid" | "recap">("grid");
+  const [exporting, setExporting] = useState(false);
 
   // Refs pour l'auto-sauvegarde (toujours à jour, sans relancer les effets)
   const gridRef = useRef(grid);
@@ -172,7 +174,7 @@ const StaffingView = () => {
     () =>
       [...missions]
         .sort(sortStatusThenName((m) => m.client))
-        .map((m: any) => ({ key: missionTarget(m.id), title: m.client, subtitle: m.name, onHold: m.status === "on_hold" })),
+        .map((m: any) => ({ key: missionTarget(m.id), title: m.client, subtitle: m.name, pole: m.pole ?? "", onHold: m.status === "on_hold" })),
     [missions]
   );
   const transverseTargets = useMemo(
@@ -487,12 +489,50 @@ const StaffingView = () => {
     );
   }
 
+  // ─── Export Excel ────────────────────────────────────────────────────────────
+  // On exporte exactement ce qui est affiche : la fenetre de mois courante, les
+  // personnes non masquees et les cibles visibles. Tout est genere dans le
+  // navigateur, aucune donnee ne sort vers un service tiers.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const targets: ExportTarget[] = [
+        ...visibleMissionTargets.map((t) => ({
+          key: t.key,
+          type: "mission" as const,
+          label: t.subtitle,
+          client: t.title,
+          pole: t.pole ?? "",
+        })),
+        ...visibleTransverseTargets.map((t) => ({
+          key: t.key,
+          type: "transverse" as const,
+          label: t.title,
+          client: "",
+          pole: "",
+        })),
+      ];
+
+      await downloadStaffingWorkbook({
+        months,
+        people: visiblePeople.map((p) => ({ id: p.id, full_name: p.full_name, role: p.role })),
+        targets,
+        getDays: getCell,
+      });
+    } catch (e) {
+      toast.error("L'export Excel a échoué");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <h2 className="text-xl font-heading font-semibold text-primary">{isPlanner ? "Staffing prévisionnel" : "Mon staffing prévisionnel"}</h2>
         <div className="flex flex-col items-end gap-1">
           {isPlanner && (
+            <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
               <Button
                 variant={view === "grid" ? "default" : "ghost"}
@@ -510,6 +550,22 @@ const StaffingView = () => {
               >
                 <BarChart3 size={14} className="mr-1" /> Récap
               </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-lg h-8"
+              onClick={handleExport}
+              disabled={exporting}
+              title="Exporter la vue courante en Excel"
+            >
+              {exporting ? (
+                <Loader2 size={14} className="mr-1 animate-spin" />
+              ) : (
+                <Download size={14} className="mr-1" />
+              )}
+              Exporter
+            </Button>
             </div>
           )}
           <span className="text-xs text-muted-foreground flex items-center gap-1.5 h-4">
