@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.103.0";
+import { authorize, serviceClient } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,6 +151,14 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const auth = await authorize(req, serviceClient());
+  if (!auth.ok) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: auth.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -203,7 +212,7 @@ Deno.serve(async (req: Request) => {
       if (!res.ok) {
         const err = await res.text();
         return new Response(
-          JSON.stringify({ error: `Erreur Notion API (${res.status}): ${err}`, api_key_preview: notionApiKey.slice(0, 10) + "..." }),
+          JSON.stringify({ error: `Erreur Notion API (${res.status}): ${err}` }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -329,7 +338,7 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err.message, stack: err.stack }),
+      JSON.stringify({ error: err.message }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

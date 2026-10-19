@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.103.0";
+import { authorize, serviceClient } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,6 +133,14 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const auth = await authorize(req, serviceClient());
+  if (!auth.ok) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: auth.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
@@ -203,7 +212,7 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err.message, stack: err.stack }),
+      JSON.stringify({ error: err.message }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
